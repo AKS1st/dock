@@ -517,15 +517,17 @@ function StatusBar(props: { items: ReturnType<WorkbenchService['getStatusItems']
 }
 
 /**
- * Best-effort active session id: read the sessions service if the runtime
- * provides it (mirrors the sidebar plugin's `sessions.list.getSnapshot()
- * .current`). Phase 1 reads once per mount; live session switching lands in
- * Phase 2. Returns undefined when the service is absent.
+ * Live active-session id: subscribes to the sessions list (same pattern as
+ * the community sidebar), so switching the workspace/conversation re-renders
+ * and every view keyed on sessionId reloads against the new working
+ * directory. Returns undefined when the sessions service is absent.
  */
 function useSessionId(ctx: WorkbenchContext): string | undefined {
-  const [sessionId] = useState<string | undefined>(() => {
-    const sessions = ctx.get<{ list?: { getSnapshot(): { current?: string } } }>('sessions')
-    return sessions?.list?.getSnapshot().current
-  })
-  return sessionId
+  const sessions = ctx.get<{
+    list?: { subscribe(cb: () => void): () => void; getSnapshot(): { current?: string } }
+  }>('sessions')
+  return useSyncExternalStore(
+    (cb) => sessions?.list?.subscribe(cb) ?? (() => {}),
+    () => sessions?.list?.getSnapshot().current,
+  )
 }
