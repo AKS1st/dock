@@ -1,0 +1,7 @@
+# desk bundle patch: appended to the profile bundle stack by
+# `dsh plugin --profile web add <repo>` (dsh.bundle.patch). Mounts the
+# workbench base plugin row; feature plugins (dsh-wb-files, ...) add their
+# own rows the same way.
+- insert:
+    - id: desk
+      name: 'desk'
