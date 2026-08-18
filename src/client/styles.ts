@@ -32,14 +32,24 @@ const CSS = `
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 8px;
+  height: 34px;
+  flex: none;
+  padding: 0 6px;
   cursor: move;
   user-select: none;
   font-size: 12px;
+  font-weight: 600;
   color: var(--dsw-alias-label-primary, #1f2328);
-  background: var(--dsw-specific-sidebar-fill, #f0f1f3);
+  /* Distinct from the editor's own toolbar: stronger tint + grip hint. */
+  background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.12));
   border-bottom: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+}
+/* Visual grip affordance: three dots at the left of the window bar. */
+.dsh-wb-floating-head::before {
+  content: '⠿';
+  color: var(--dsw-alias-label-secondary, #656d76);
+  font-size: 11px;
+  margin-right: 2px;
 }
 .dsh-wb-floating-title {
   flex: 1;
@@ -49,13 +59,15 @@ const CSS = `
 }
 .dsh-wb-floating-close {
   border: 0;
+  border-radius: 5px;
   background: transparent;
   cursor: pointer;
   color: inherit;
-  opacity: 0.5;
-  padding: 0 4px;
+  opacity: 0.75;
+  padding: 2px 8px;
+  font-size: 13px;
 }
-.dsh-wb-floating-close:hover { opacity: 1; }
+.dsh-wb-floating-close:hover { opacity: 1; background: rgba(209, 36, 47, 0.18); }
 .dsh-wb-floating-body {
   flex: 1;
   min-height: 0;

@@ -82,7 +82,7 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
       ...(Array.isArray(parsed.activityOrder) ? { activityOrder: parsed.activityOrder.filter((v): v is string => typeof v === 'string') } : {}),
       ...(parsed.absorbNative === true ? { absorbNative: true as const } : {}),
       ...(parsed.floatingWindows !== undefined && parsed.floatingWindows !== null && typeof parsed.floatingWindows === 'object'
-        ? { floatingWindows: parsed.floatingWindows as Record<string, FloatingWindow> } : {}),
+        ? { floatingWindows: migrateFloatingWindows(parsed.floatingWindows) } : {}),
     }
   } catch {
     return null
@@ -103,6 +103,32 @@ function migrateEditorTabs(raw: unknown, seeds: Record<string, EditorOpenSeed | 
     }))
   }
   return raw.filter((t): t is EditorTab => typeof t === 'object' && t !== null && typeof (t as EditorTab).viewId === 'string')
+}
+
+
+/** Migrate persisted floating windows to the instance model: legacy data was
+ * keyed by viewId with no instanceId field — the new model keys by instanceId
+ * and requires that field (close/move/resize all address windows by it).
+ * Unknown or malformed entries are dropped. */
+function migrateFloatingWindows(raw: unknown): Record<string, FloatingWindow> {
+  const result: Record<string, FloatingWindow> = {}
+  if (raw === null || typeof raw !== 'object') return result
+  for (const value of Object.values(raw as Record<string, unknown>)) {
+    if (value === null || typeof value !== 'object') continue
+    const win = value as Record<string, unknown>
+    if (typeof win.viewId !== 'string') continue
+    const instanceId = typeof win.instanceId === 'string' ? win.instanceId : win.viewId
+    result[instanceId] = {
+      instanceId,
+      viewId: win.viewId,
+      seed: win.seed as EditorOpenSeed | undefined,
+      x: typeof win.x === 'number' ? win.x : 120,
+      y: typeof win.y === 'number' ? win.y : 80,
+      width: typeof win.width === 'number' ? win.width : 520,
+      height: typeof win.height === 'number' ? win.height : 360,
+    }
+  }
+  return result
 }
 
 export function createLayoutStore(storage?: LayoutStorage): LayoutStore {
