@@ -30,7 +30,8 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
   font: 13px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
   color: var(--dsw-alias-label-primary, #1f2328);
   transition: width 0.18s var(--ds-ease-in-out, ease),
-              height 0.18s var(--ds-ease-in-out, ease);
+              height 0.18s var(--ds-ease-in-out, ease),
+              transform 0.18s var(--ds-ease-in-out, ease);
 }
 /* Docked edge + main direction (row for left/right, column for top/bottom). */
 .dsh-wb-root[data-dock="left"],
@@ -338,6 +339,26 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
   top: 50%;
   transform: translateY(-50%);
 }
+
+/* ── Auto-hide (edge): a 4px hotspot strip on the docked edge revives the
+   workbench; the hidden state slides the shell off-screen (panel mode) or
+   hides the dock bar and floating panel (dock mode). ── */
+.dsh-wb-autohide-hotspot {
+  position: fixed;
+  z-index: 48;
+  background: transparent;
+}
+.dsh-wb-autohide-hotspot[data-dock="left"] { left: 0; top: 0; bottom: 0; width: 4px; }
+.dsh-wb-autohide-hotspot[data-dock="right"] { right: 0; top: 0; bottom: 0; width: 4px; }
+.dsh-wb-autohide-hotspot[data-dock="top"] { top: 0; left: 0; right: 0; height: 4px; }
+.dsh-wb-autohide-hotspot[data-dock="bottom"] { bottom: 0; left: 0; right: 0; height: 4px; }
+
+.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="right"] { transform: translateX(calc(100% + 1px)); }
+.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="left"] { transform: translateX(calc(-100% - 1px)); }
+.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="top"] { transform: translateY(calc(-100% - 1px)); }
+.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="bottom"] { transform: translateY(calc(100% + 1px)); }
+.dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-activity,
+.dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-sidebar { visibility: hidden; }
 `
 
 export function mountStyles(): () => void {

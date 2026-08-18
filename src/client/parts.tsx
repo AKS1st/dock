@@ -8,7 +8,7 @@
  * useSyncExternalStore (both are synchronous snapshots), so any
  * register/unregister or layout patch re-renders the affected parts.
  */
-import { createElement, lazy, Suspense, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { createElement, Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ComponentType, ReactNode } from 'react'
 import type {
   ActivityBarItemDefinition,
@@ -116,6 +116,10 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     () => registryVersion,
   )
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const autoHide = layout.autoHide === 'edge'
+  const [autoHidden, setAutoHidden] = useState(false)
+  const hideTimer = useRef<number | null>(null)
+  useEffect(() => () => { if (hideTimer.current !== null) window.clearTimeout(hideTimer.current) }, [])
 
   const activityItems = useMemo(() => {
     // User drag order (activityOrder) wins; items not listed keep their
@@ -137,16 +141,17 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   // Layout push + dock edge: the shell sets --desk-size (the DSH app shell
   // yields it via #root margin) and mirrors the edge onto <body> so the
   // injected styles can target the right margin property. Dock mode never
-  // pushes — the floating bar overlays the page like the macOS Dock.
+  // pushes — the floating bar overlays the page like the macOS Dock. An
+  // auto-hidden shell also yields nothing.
   useEffect(() => {
-    const size = dockMode ? 0 : (collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock])
+    const size = (dockMode || autoHidden) ? 0 : (collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock])
     document.documentElement.style.setProperty('--desk-size', `${size}px`)
     document.body.setAttribute('data-desk-dock', layout.dock)
     return () => {
       document.documentElement.style.removeProperty('--desk-size')
       document.body.removeAttribute('data-desk-dock')
     }
-  }, [collapsed, layout.dock, dockMode])
+  }, [collapsed, layout.dock, dockMode, autoHidden])
 
   const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
   const activePane = activeActivity === undefined || !layout.sideBarOpen
@@ -162,18 +167,42 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         onClick: () => store.update({ dock }),
       })),
       { label: 'Dock 模式（macOS 风格）', kind: 'checkbox' as const, checked: dockMode, onClick: () => store.update({ deskMode: dockMode ? 'panel' : 'dock' }) },
+      { label: '自动隐藏（鼠标远离收起）', kind: 'checkbox' as const, checked: autoHide, onClick: () => store.update({ autoHide: autoHide ? 'off' : 'edge' }) },
     ]
     setMenu({ x, y, items })
   }
 
+  // Auto-hide state machine: hovering the workbench keeps it visible; after
+  // the mouse leaves for 400ms it slides away; the edge hotspot revives it.
+  const reveal = (): void => {
+    if (hideTimer.current !== null) { window.clearTimeout(hideTimer.current); hideTimer.current = null }
+    setAutoHidden(false)
+  }
+  const scheduleHide = (): void => {
+    if (!autoHide) return
+    if (hideTimer.current !== null) window.clearTimeout(hideTimer.current)
+    hideTimer.current = window.setTimeout(() => setAutoHidden(true), 400)
+  }
+
+  const rootClass = [
+    'dsh-wb-root',
+    collapsed ? 'wb-collapsed' : undefined,
+    autoHidden ? 'wb-autohidden' : undefined,
+  ].filter(Boolean).join(' ')
+
   return createElement(
-    'div',
-    {
-      className: `dsh-wb-root${collapsed ? ' wb-collapsed' : ''}`,
-      'data-desk-shell': '',
-      'data-dock': layout.dock,
-      'data-mode': dockMode ? 'dock' : 'panel',
-    },
+    Fragment,
+    null,
+    createElement(
+      'div',
+      {
+        className: rootClass,
+        'data-desk-shell': '',
+        'data-dock': layout.dock,
+        'data-mode': dockMode ? 'dock' : 'panel',
+        onMouseEnter: reveal,
+        onMouseLeave: scheduleHide,
+      },
     createElement(ActivityBar, {
       items: activityItems,
       activeId: layout.activity,
@@ -216,6 +245,16 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       ),
     ),
     createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
+    ),
+    // Edge hotspot: a 4px strip on the docked edge (outside the shell, which
+    // may be slid off-screen) that revives the workbench on hover.
+    autoHide
+      ? createElement('div', {
+        className: 'dsh-wb-autohide-hotspot',
+        'data-dock': layout.dock,
+        onMouseEnter: reveal,
+      })
+      : null,
   )
 }
 
