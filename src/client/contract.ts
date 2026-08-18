@@ -117,11 +117,9 @@ export interface WorkbenchLayout {
   /** Active activity-bar item id; null collapses the workbench to the strip. */
   activity: string | null
   sideBarOpen: boolean
-  /** Open editor views in the editor area (tab order). */
-  editorTabs: string[]
-  /** Per-view open seeds (path/title/meta), persisted with the tab layout. */
-  editorSeeds: Record<string, EditorOpenSeed | undefined>
-  /** The focused editor view id. */
+  /** Open editor view instances in the editor area (tab order). */
+  editorTabs: EditorTab[]
+  /** The focused editor instance id. */
   activeEditorTab: string | null
   panelOpen: boolean
   /** The panel's current view id. */
@@ -156,14 +154,24 @@ export interface EditorOpenSeed {
   meta?: unknown
 }
 
-/** One independent floating window (view + geometry, persisted). */
+/** One independent floating window (an open instance + geometry, persisted). */
 export interface FloatingWindow {
+  /** The open instance id (shared vocabulary with editorTabs). */
+  instanceId: string
   viewId: string
   seed?: EditorOpenSeed
   x: number
   y: number
   width: number
   height: number
+}
+
+/** One open editor instance (a view + its seed) hosted in the editor area. */
+export interface EditorTab {
+  /** Unique instance id (stable across container moves, survives reloads). */
+  instanceId: string
+  viewId: string
+  seed?: EditorOpenSeed
 }
 
 /** Options for opening a file path through the workbench (system entry). */
@@ -195,19 +203,18 @@ export interface WorkbenchService {
   /** Subscribe to layout changes; returns the disposer. */
   onDidChangeLayout(listener: () => void): () => void
 
-  /** Open (or focus) an editor view in the editor area, carrying a seed. */
-  openEditorView(viewId: string, seed?: EditorOpenSeed): void
-  /** Close an editor view; unknown ids are a no-op. */
-  closeEditorView(viewId: string): void
-
-  /** Open (or focus) a floating window carrying a view + seed. */
-  openFloatingWindow(windowId: string, viewId: string, seed?: EditorOpenSeed): void
-  /** Close a floating window; unknown ids are a no-op. */
-  closeFloatingWindow(windowId: string): void
-  /** Move a floating window (persisted). */
-  moveFloatingWindow(windowId: string, x: number, y: number): void
-  /** Resize a floating window (persisted). */
-  resizeFloatingWindow(windowId: string, width: number, height: number): void
+  /**
+   * Open (or focus) one view instance. Defaults to the editor area (tab);
+   * options.floating hosts it in an independent floating window. Returns
+   * the instance id (a matching open focuses the existing instance).
+   */
+  openView(viewId: string, seed?: EditorOpenSeed, options?: { floating?: boolean }): string
+  /** Close a view instance wherever it lives (tab or floating); unknown ids are a no-op. */
+  closeViewInstance(instanceId: string): void
+  /** Move a floating window (persisted); instanceId-keyed. */
+  moveFloatingWindow(instanceId: string, x: number, y: number): void
+  /** Resize a floating window (persisted); instanceId-keyed. */
+  resizeFloatingWindow(instanceId: string, width: number, height: number): void
 
   /**
    * Unified file-path entry: system interception (chat links, produced

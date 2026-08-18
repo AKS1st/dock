@@ -5,13 +5,12 @@
  * Phase 1 models one editor area with an ordered tab list; recursive
  * splits arrive in Phase 2.
  */
-import type { DockPosition, EditorOpenSeed, FloatingWindow, WorkbenchLayout } from './contract.ts'
+import type { DockPosition, EditorOpenSeed, EditorTab, FloatingWindow, WorkbenchLayout } from './contract.ts'
 
 export const DEFAULT_LAYOUT: WorkbenchLayout = {
   activity: null,
   sideBarOpen: true,
   editorTabs: [],
-  editorSeeds: {},
   activeEditorTab: null,
   panelOpen: false,
   panelViewId: null,
@@ -63,10 +62,18 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
       ...DEFAULT_LAYOUT,
       ...(typeof parsed.activity === 'string' || parsed.activity === null ? { activity: parsed.activity } : {}),
       ...(typeof parsed.sideBarOpen === 'boolean' ? { sideBarOpen: parsed.sideBarOpen } : {}),
-      ...(Array.isArray(parsed.editorTabs) ? { editorTabs: parsed.editorTabs.filter((t): t is string => typeof t === 'string') } : {}),
-      ...(parsed.editorSeeds !== undefined && parsed.editorSeeds !== null && typeof parsed.editorSeeds === 'object'
-        ? { editorSeeds: parsed.editorSeeds as Record<string, EditorOpenSeed | undefined> } : {}),
-      ...(typeof parsed.activeEditorTab === 'string' || parsed.activeEditorTab === null ? { activeEditorTab: parsed.activeEditorTab } : {}),
+      ...(Array.isArray(parsed.editorTabs)
+        ? (() => {
+          const tabs = migrateEditorTabs(parsed.editorTabs, (parsed as Record<string, unknown>).editorSeeds as Record<string, EditorOpenSeed | undefined> | undefined)
+          let active = typeof parsed.activeEditorTab === 'string' ? parsed.activeEditorTab : null
+          // Legacy activeEditorTab was a viewId; map it to the migrated instance.
+          if (typeof active === 'string' && !active.startsWith('vi:')) {
+            const match = tabs.find((tab) => tab.viewId === active)
+            active = match?.instanceId ?? null
+          }
+          return { editorTabs: tabs, activeEditorTab: active }
+        })()
+        : {}),
       ...(typeof parsed.panelOpen === 'boolean' ? { panelOpen: parsed.panelOpen } : {}),
       ...(typeof parsed.panelViewId === 'string' || parsed.panelViewId === null ? { panelViewId: parsed.panelViewId } : {}),
       ...(typeof parsed.dock === 'string' && DOCKS.includes(parsed.dock as DockPosition) ? { dock: parsed.dock as DockPosition } : {}),
@@ -82,9 +89,30 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
   }
 }
 
+
+/** Migrate persisted editorTabs to the instance model: legacy string[]
+ * (view ids) with a separate editorSeeds map becomes EditorTab[] with
+ * generated instance ids. */
+function migrateEditorTabs(raw: unknown, seeds: Record<string, EditorOpenSeed | undefined> | undefined): EditorTab[] {
+  if (!Array.isArray(raw)) return []
+  if (raw.every((t): t is string => typeof t === 'string')) {
+    return raw.map((viewId, index) => ({
+      instanceId: `vi:legacy:${index + 1}`,
+      viewId,
+      seed: seeds?.[viewId],
+    }))
+  }
+  return raw.filter((t): t is EditorTab => typeof t === 'object' && t !== null && typeof (t as EditorTab).viewId === 'string')
+}
+
 export function createLayoutStore(storage?: LayoutStorage): LayoutStore {
   const backing: LayoutStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : memoryStorage())
-  let layout: WorkbenchLayout = loadPersisted(backing) ?? DEFAULT_LAYOUT
+  const loaded = loadPersisted(backing)
+  if (loaded !== null) {
+    // Persist the normalized (migrated) form so legacy data upgrades once.
+    try { backing.setItem(STORAGE_KEY, JSON.stringify(loaded)) } catch { /* storage unavailable */ }
+  }
+  let layout: WorkbenchLayout = loaded ?? DEFAULT_LAYOUT
   const listeners = new Set<() => void>()
 
   return {

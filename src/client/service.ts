@@ -85,28 +85,63 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     return command.run(...args)
   }
 
-  const openEditorView = (viewId: string, seed?: EditorOpenSeed): void => {
+  // ── View instances: one open view = one instance id, hosted either in the
+  //    editor-area tabs or in a floating window. ──
+  let uidCounter = 0
+  const uid = (): string => `vi:${++uidCounter}`
+
+  const openView = (viewId: string, seed?: EditorOpenSeed, options?: { floating?: boolean }): string => {
     const current = store.getLayout()
-    const editorSeeds = { ...current.editorSeeds }
-    if (seed !== undefined) editorSeeds[viewId] = seed
-    if (current.editorTabs.includes(viewId)) {
-      store.update({ activeEditorTab: viewId, editorSeeds })
-      return
+    if (options?.floating === true) {
+      // One floating instance per view (Phase F1; multi-instance lands later).
+      const existingEntry = Object.entries(current.floatingWindows).find(([, win]) => win.viewId === viewId)
+      if (existingEntry !== undefined) {
+        const [instanceId, win] = existingEntry
+        if (seed !== undefined) {
+          store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, seed } } })
+        }
+        return instanceId
+      }
+      const instanceId = uid()
+      store.update({
+        floatingWindows: {
+          ...current.floatingWindows,
+          [instanceId]: { instanceId, viewId, seed, x: 120, y: 80, width: 520, height: 360 },
+        },
+      })
+      return instanceId
     }
-    store.update({ editorTabs: [...current.editorTabs, viewId], activeEditorTab: viewId, editorSeeds })
+    // Editor-area tab: focus an existing instance of the view, else open one.
+    const existing = current.editorTabs.find((tab) => tab.viewId === viewId)
+    if (existing !== undefined) {
+      if (seed !== undefined) {
+        store.update({
+          activeEditorTab: existing.instanceId,
+          editorTabs: current.editorTabs.map((tab) => tab.instanceId === existing.instanceId ? { ...tab, seed } : tab),
+        })
+      } else {
+        store.update({ activeEditorTab: existing.instanceId })
+      }
+      return existing.instanceId
+    }
+    const instanceId = uid()
+    store.update({
+      editorTabs: [...current.editorTabs, { instanceId, viewId, seed }],
+      activeEditorTab: instanceId,
+    })
+    return instanceId
   }
 
-  const closeEditorView = (viewId: string): void => {
+  const closeViewInstance = (instanceId: string): void => {
     const current = store.getLayout()
-    if (!current.editorTabs.includes(viewId)) return
-    const editorTabs = current.editorTabs.filter((tab) => tab !== viewId)
+    const editorTabs = current.editorTabs.filter((tab) => tab.instanceId !== instanceId)
     let activeEditorTab = current.activeEditorTab
-    if (activeEditorTab === viewId) {
-      activeEditorTab = editorTabs.length > 0 ? editorTabs[editorTabs.length - 1]! : null
+    if (activeEditorTab === instanceId) {
+      activeEditorTab = editorTabs.length > 0 ? editorTabs[editorTabs.length - 1]!.instanceId : null
     }
-    const editorSeeds = { ...current.editorSeeds }
-    delete editorSeeds[viewId]
-    store.update({ editorTabs, activeEditorTab, editorSeeds })
+    const floatingWindows = { ...current.floatingWindows }
+    delete floatingWindows[instanceId]
+    store.update({ editorTabs, activeEditorTab, floatingWindows })
   }
 
   // Open-path routing: the file-domain host (desk-files) registers a handler
@@ -123,39 +158,20 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
       return
     }
     // No file-domain host: fall back to opening the default file view directly.
-    openEditorView(options?.viewId ?? 'editor', { path, title: options?.title })
+    openView(options?.viewId ?? 'editor', { path, title: options?.title })
   }
 
-  // Floating windows: viewId-keyed geometry, persisted through the layout.
-  const openFloatingWindow = (windowId: string, viewId: string, seed?: EditorOpenSeed): void => {
+  const moveFloatingWindow = (instanceId: string, x: number, y: number): void => {
     const current = store.getLayout()
-    const existing = current.floatingWindows[windowId]
-    const floatingWindows = {
-      ...current.floatingWindows,
-      [windowId]: existing === undefined
-        ? { viewId, seed, x: 120, y: 80, width: 520, height: 360 }
-        : { ...existing, viewId, ...(seed !== undefined ? { seed } : {}) },
-    }
-    store.update({ floatingWindows })
-  }
-  const closeFloatingWindow = (windowId: string): void => {
-    const current = store.getLayout()
-    if (current.floatingWindows[windowId] === undefined) return
-    const floatingWindows = { ...current.floatingWindows }
-    delete floatingWindows[windowId]
-    store.update({ floatingWindows })
-  }
-  const moveFloatingWindow = (windowId: string, x: number, y: number): void => {
-    const current = store.getLayout()
-    const win = current.floatingWindows[windowId]
+    const win = current.floatingWindows[instanceId]
     if (win === undefined) return
-    store.update({ floatingWindows: { ...current.floatingWindows, [windowId]: { ...win, x, y } } })
+    store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, x, y } } })
   }
-  const resizeFloatingWindow = (windowId: string, width: number, height: number): void => {
+  const resizeFloatingWindow = (instanceId: string, width: number, height: number): void => {
     const current = store.getLayout()
-    const win = current.floatingWindows[windowId]
+    const win = current.floatingWindows[instanceId]
     if (win === undefined) return
-    store.update({ floatingWindows: { ...current.floatingWindows, [windowId]: { ...win, width, height } } })
+    store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, width, height } } })
   }
 
   return {
@@ -168,10 +184,8 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     getLayout: () => store.getLayout(),
     updateLayout: (patch: Partial<WorkbenchLayout>) => store.update(patch),
     onDidChangeLayout: (listener: () => void) => store.subscribe(listener),
-    openEditorView,
-    closeEditorView,
-    openFloatingWindow,
-    closeFloatingWindow,
+    openView,
+    closeViewInstance,
     moveFloatingWindow,
     resizeFloatingWindow,
     openPath,

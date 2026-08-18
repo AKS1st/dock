@@ -14,6 +14,7 @@ import type {
   ActivityBarItemDefinition,
   DockPosition,
   EditorOpenSeed,
+  EditorTab,
   FloatingWindow,
   IconRef,
   IconSpec,
@@ -277,7 +278,6 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
               service,
               store,
               tabs: layout.editorTabs,
-              seeds: layout.editorSeeds,
               activeTab: layout.activeEditorTab,
               views: editorViews,
               sessionId,
@@ -387,7 +387,7 @@ function FloatingWindows(props: {
       createElement('button', {
         className: 'dsh-wb-floating-close',
         title: 'Close',
-        onClick: () => service.closeFloatingWindow(id),
+        onClick: () => service.closeViewInstance(id),
       }, '×'),
       ),
       createElement('div', { className: 'dsh-wb-floating-body' },
@@ -402,9 +402,9 @@ function FloatingWindows(props: {
   )
 }
 
-/** Stable key of a floating window (viewId is single-instance in Phase 1). */
+/** Stable key of a floating window: the instance id. */
 function windowKey(win: FloatingWindow): string {
-  return win.viewId
+  return win.instanceId
 }
 
 function ActivityBar(props: {
@@ -469,42 +469,43 @@ function EditorArea(props: {
   ctx: WorkbenchContext
   service: WorkbenchService
   store: LayoutStore
-  tabs: string[]
-  seeds: Record<string, EditorOpenSeed | undefined>
+  tabs: EditorTab[]
   activeTab: string | null
   views: ViewDefinition[]
   sessionId: string | undefined
 }): ReactNode {
-  const { ctx, service, store, tabs, seeds, activeTab, views, sessionId } = props
+  const { ctx, service, store, tabs, activeTab, views, sessionId } = props
   const viewById = useMemo(() => new Map(views.map((view) => [view.id, view])), [views])
-  const activeView = activeTab === null ? undefined : viewById.get(activeTab)
+  const activeTabEntry = activeTab === null ? undefined : tabs.find((tab) => tab.instanceId === activeTab)
+  const activeView = activeTabEntry === undefined ? undefined : viewById.get(activeTabEntry.viewId)
   return createElement('div', { className: 'dsh-wb-editor' },
     tabs.length > 0
       ? createElement('div', { className: 'dsh-wb-tabs' },
-        tabs.map((tabId) => {
-          const view = viewById.get(tabId)
+        tabs.map((tab) => {
+          const view = viewById.get(tab.viewId)
           if (view === undefined) return null
+          const seedTitle = (tab.seed as { title?: string } | undefined)?.title
           return createElement('div', {
-            key: tabId,
-            className: `dsh-wb-tab${activeTab === tabId ? ' active' : ''}`,
-            onClick: () => service.openEditorView(tabId),
+            key: tab.instanceId,
+            className: `dsh-wb-tab${activeTab === tab.instanceId ? ' active' : ''}`,
+            onClick: () => store.update({ activeEditorTab: tab.instanceId }),
           },
           view.icon !== undefined ? renderIcon(view.icon, 14) : null,
-          titleOf(view),
+          seedTitle ?? titleOf(view),
           createElement('button', {
             className: 'dsh-wb-tab-close',
             title: 'Close',
             onClick: (event: MouseEvent) => {
               event.stopPropagation()
-              service.closeEditorView(tabId)
+              service.closeViewInstance(tab.instanceId)
             },
           }, '×'),
           )
         }),
       )
       : null,
-    activeView !== undefined
-      ? renderView(ctx, activeView, activeView.id, sessionId, true, seeds[activeView.id])
+    activeView !== undefined && activeTabEntry !== undefined
+      ? renderView(ctx, activeView, activeView.id, sessionId, true, activeTabEntry.seed)
       : null,
   )
 }
