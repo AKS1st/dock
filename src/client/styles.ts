@@ -194,6 +194,12 @@ body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
   flex-direction: row;
 }
 
+/* Editor area sits toward the screen center; the side bar hugs the outer
+   (screen-edge) side. Right dock: main left, sidebar right; left dock keeps
+   the classic sidebar-left layout (main toward the app shell = the middle). */
+.dsh-wb-root[data-dock="right"] .dsh-wb-main { order: 1; }
+.dsh-wb-root[data-dock="right"] .dsh-wb-sidebar { order: 2; border-right: 0; border-left: 1px solid var(--dsw-alias-border-l2, #d8dbe0); }
+
 .dsh-wb-sidebar {
   width: 240px;
   flex: none;
