@@ -208,6 +208,8 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
 .dsh-wb-menu {
   position: fixed;
   z-index: 1000;
+  /* Survives the dock root's pointer-events:none (dock mode). */
+  pointer-events: auto;
   min-width: 160px;
   padding: 4px;
   border-radius: 8px;
@@ -305,6 +307,9 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
 .dsh-wb-root[data-mode="dock"] .dsh-wb-sidebar {
   position: fixed;
   z-index: 59;
+  /* The dock root is pointer-events:none; the floating panel must be
+     interactive again (same for the context menu below). */
+  pointer-events: auto;
   width: 300px;
   max-height: 70vh;
   overflow: auto;
