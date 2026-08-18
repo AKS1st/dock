@@ -40,6 +40,28 @@ export interface ViewProps {
 /** A view component, or a lazy factory resolving to one on first use. */
 export type ViewComponent = ComponentType<ViewProps> | (() => Promise<ComponentType<ViewProps>>)
 
+/**
+ * An SVG icon spec, rendered by the desk shell with `currentColor` so it
+ * follows the theme. `path` is a single SVG path `d` (fill style by
+ * default; `stroke: true` switches to lucide-style stroke rendering).
+ */
+export interface IconSpec {
+  /** SVG path `d` data (24×24 viewBox by default). */
+  path: string
+  /** Rendered size in px; default 16. */
+  size?: number
+  /** Override the viewBox (default '0 0 24 24'). */
+  viewBox?: string
+  /** Stroke style instead of fill: stroke=currentColor, stroke-width 2, round caps/joins. */
+  stroke?: boolean
+}
+
+/**
+ * What a registration may pass as an icon: any React node (emoji, custom
+ * component) or an SVG spec (`{ path: 'M...' }`), rendered by the shell.
+ */
+export type IconRef = ReactNode | IconSpec
+
 /** One view registered into a workbench region (side bar pane / editor area tab / panel). */
 export interface ViewDefinition {
   /** Unique id; also the `viewId` handed to the component. */
@@ -47,7 +69,7 @@ export interface ViewDefinition {
   /** Title (i18n friendly: string or () => string). */
   title: string | (() => string)
   /** Icon shown in the activity bar / tab strip. */
-  icon?: ReactNode
+  icon?: IconRef
   /** Sort order (ascending); default 100. */
   order?: number
   /** The component (or lazy factory). */
@@ -58,7 +80,7 @@ export interface ViewDefinition {
 export interface ActivityBarItemDefinition {
   id: string
   title: string
-  icon: ReactNode
+  icon: IconRef
   /** Sort order (ascending); default 100. */
   order?: number
   /** The side bar pane to reveal when this item is activated. */
@@ -80,11 +102,14 @@ export interface CommandDefinition {
   run: (...args: unknown[]) => unknown | Promise<unknown>
 }
 
+/** The screen edge the workbench docks to. */
+export type DockPosition = 'left' | 'right' | 'top' | 'bottom'
+
 /**
  * The workbench layout snapshot: which activity is active, whether the side
- * bar is open, which editor views are open (tab strip), and the bottom
- * panel state. Phase 1 keeps a single editor area (no recursive splits —
- * that is Phase 2 work).
+ * bar is open, which editor views are open (tab strip), the bottom panel
+ * state, and the dock configuration (edge / presentation mode / auto-hide —
+ * the latter two land in later phases and default to 'panel' / 'off').
  */
 export interface WorkbenchLayout {
   /** Active activity-bar item id; null collapses the workbench to the strip. */
@@ -97,6 +122,14 @@ export interface WorkbenchLayout {
   panelOpen: boolean
   /** The panel's current view id. */
   panelViewId: string | null
+  /** The screen edge this workbench docks to. */
+  dock: DockPosition
+  /** Presentation mode: 'panel' (embedded) or 'dock' (macOS-like floating). */
+  deskMode: 'panel' | 'dock'
+  /** Auto-hide behavior: 'off' (always visible) or 'edge' (hide when the mouse leaves). */
+  autoHide: 'off' | 'edge'
+  /** User-ordered activity items (drag-sorted; items not listed keep their registered order). */
+  activityOrder: string[]
 }
 
 /**

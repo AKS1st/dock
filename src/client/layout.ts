@@ -5,7 +5,7 @@
  * Phase 1 models one editor area with an ordered tab list; recursive
  * splits arrive in Phase 2.
  */
-import type { WorkbenchLayout } from './contract.ts'
+import type { DockPosition, WorkbenchLayout } from './contract.ts'
 
 export const DEFAULT_LAYOUT: WorkbenchLayout = {
   activity: null,
@@ -14,6 +14,10 @@ export const DEFAULT_LAYOUT: WorkbenchLayout = {
   activeEditorTab: null,
   panelOpen: false,
   panelViewId: null,
+  dock: 'right',
+  deskMode: 'panel',
+  autoHide: 'off',
+  activityOrder: [],
 }
 
 const STORAGE_KEY = 'desk:layout'
@@ -30,6 +34,8 @@ export interface LayoutStorage {
   setItem(key: string, value: string): void
 }
 
+const DOCKS: readonly DockPosition[] = ['left', 'right', 'top', 'bottom']
+
 function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
   try {
     const raw = storage.getItem(STORAGE_KEY)
@@ -43,6 +49,10 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
       ...(typeof parsed.activeEditorTab === 'string' || parsed.activeEditorTab === null ? { activeEditorTab: parsed.activeEditorTab } : {}),
       ...(typeof parsed.panelOpen === 'boolean' ? { panelOpen: parsed.panelOpen } : {}),
       ...(typeof parsed.panelViewId === 'string' || parsed.panelViewId === null ? { panelViewId: parsed.panelViewId } : {}),
+      ...(typeof parsed.dock === 'string' && DOCKS.includes(parsed.dock as DockPosition) ? { dock: parsed.dock as DockPosition } : {}),
+      ...(parsed.deskMode === 'dock' ? { deskMode: 'dock' as const } : {}),
+      ...(parsed.autoHide === 'edge' ? { autoHide: 'edge' as const } : {}),
+      ...(Array.isArray(parsed.activityOrder) ? { activityOrder: parsed.activityOrder.filter((v): v is string => typeof v === 'string') } : {}),
     }
   } catch {
     return null

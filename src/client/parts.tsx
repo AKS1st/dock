@@ -12,16 +12,48 @@ import { createElement, lazy, Suspense, useEffect, useMemo, useState, useSyncExt
 import type { ComponentType, ReactNode } from 'react'
 import type {
   ActivityBarItemDefinition,
+  DockPosition,
+  IconRef,
+  IconSpec,
   ViewDefinition,
   ViewProps,
   WorkbenchContext,
   WorkbenchService,
 } from './contract.ts'
 import type { LayoutStore } from './layout.ts'
+import { ContextMenu, type ContextMenuItem, type ContextMenuState } from './context-menu'
 
 /** Sort helper shared by item lists. */
 function byOrder<T extends { order?: number }>(a: T, b: T): number {
   return (a.order ?? 100) - (b.order ?? 100)
+}
+
+/**
+ * Render an IconRef: React nodes (emoji, custom components) render as-is;
+ * IconSpec values render as an inline SVG `<path>` tinted with currentColor
+ * so icons follow the active theme.
+ */
+function renderIcon(icon: IconRef, size = 16): ReactNode {
+  if (icon === null || icon === undefined) return null
+  if (typeof icon === 'object' && 'path' in icon) {
+    const spec = icon as IconSpec
+    return createElement(
+      'svg',
+      {
+        width: spec.size ?? size,
+        height: spec.size ?? size,
+        viewBox: spec.viewBox ?? '0 0 24 24',
+        fill: spec.stroke ? 'none' : 'currentColor',
+        stroke: spec.stroke ? 'currentColor' : undefined,
+        strokeWidth: spec.stroke ? 2 : undefined,
+        strokeLinecap: spec.stroke ? 'round' : undefined,
+        strokeLinejoin: spec.stroke ? 'round' : undefined,
+        'aria-hidden': true,
+      },
+      createElement('path', { d: spec.path }),
+    )
+  }
+  return icon as ReactNode
 }
 
 /**
@@ -68,6 +100,12 @@ interface RootProps {
 /** Module-level registry version: bumped on every registry change. */
 let registryVersion = 0
 
+/** Docked size in px per edge (expanded workbench). */
+const DOCK_SIZE: Record<DockPosition, number> = { left: 720, right: 720, top: 480, bottom: 480 }
+/** Docked size in px per edge (collapsed to the activity strip). */
+const STRIP_SIZE: Record<DockPosition, number> = { left: 48, right: 48, top: 44, bottom: 44 }
+const DOCK_LABEL: Record<DockPosition, string> = { left: '左侧', right: '右侧', top: '顶部', bottom: '底部' }
+
 /** The whole workbench shell. */
 export function WorkbenchRoot(props: RootProps): ReactNode {
   const { ctx, service, store } = props
@@ -76,6 +114,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     (onChange) => service.subscribe(() => { registryVersion += 1; onChange() }),
     () => registryVersion,
   )
+  const [menu, setMenu] = useState<ContextMenuState | null>(null)
 
   const activityItems = useMemo(() => [...service.getActivityItems()].sort(byOrder), [registry, service])
   const panels = useMemo(() => [...service.getPanels()].sort(byOrder), [registry, service])
@@ -85,14 +124,18 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const sessionId = useSessionId(ctx)
   const collapsed = layout.activity === null
 
-  // Layout push: the DSH app shell gives up the docked width.
+  // Layout push + dock edge: the shell sets --desk-size (the DSH app shell
+  // yields it via #root margin) and mirrors the edge onto <body> so the
+  // injected styles can target the right margin property.
   useEffect(() => {
-    const width = collapsed ? '48px' : '720px'
-    document.documentElement.style.setProperty('--desk-width', width)
+    const size = collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock]
+    document.documentElement.style.setProperty('--desk-size', `${size}px`)
+    document.body.setAttribute('data-desk-dock', layout.dock)
     return () => {
-      document.documentElement.style.removeProperty('--desk-width')
+      document.documentElement.style.removeProperty('--desk-size')
+      document.body.removeAttribute('data-desk-dock')
     }
-  }, [collapsed])
+  }, [collapsed, layout.dock])
 
   const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
   const activePane = activeActivity === undefined || !layout.sideBarOpen
@@ -100,9 +143,18 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     : panels.find((panel) => panel.id === activeActivity.paneId && panel.region === 'sideBar')
   const panelView = layout.panelViewId === null ? undefined : service.getPanel(layout.panelViewId)
 
+  const openDockMenu = (x: number, y: number): void => {
+    const items: ContextMenuItem[] = (['left', 'right', 'top', 'bottom'] as DockPosition[]).map((dock) => ({
+      label: `停靠到${DOCK_LABEL[dock]}`,
+      checked: layout.dock === dock,
+      onClick: () => store.update({ dock }),
+    }))
+    setMenu({ x, y, items })
+  }
+
   return createElement(
     'div',
-    { className: `dsh-wb-root${collapsed ? ' wb-collapsed' : ''}`, 'data-desk-shell': '' },
+    { className: `dsh-wb-root${collapsed ? ' wb-collapsed' : ''}`, 'data-desk-shell': '', 'data-dock': layout.dock },
     createElement(ActivityBar, {
       items: activityItems,
       activeId: layout.activity,
@@ -110,30 +162,34 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         // Clicking the active item again collapses the side bar (VSCode toggle).
         store.update(layout.activity === id ? { activity: null } : { activity: id, sideBarOpen: true })
       },
+      onContextMenu: (x, y) => openDockMenu(x, y),
     }),
-    activePane !== undefined && !collapsed
-      ? createElement('div', { className: 'dsh-wb-sidebar' },
-        createElement('div', { className: 'dsh-wb-sidebar-header' }, titleOf(activePane)),
-        renderView(ctx, activePane, activePane.id, sessionId, layout.activity === activeActivity?.id),
-      )
-      : null,
-    createElement('div', { className: 'dsh-wb-main' },
-      createElement(EditorArea, {
-        ctx,
-        service,
-        store,
-        tabs: layout.editorTabs,
-        activeTab: layout.activeEditorTab,
-        views: editorViews,
-        sessionId,
-      }),
-      layout.panelOpen && panelView !== undefined
-        ? createElement('div', { className: 'dsh-wb-panel' },
-          renderView(ctx, panelView, panelView.id, sessionId, layout.panelOpen),
+    createElement('div', { className: 'dsh-wb-body' },
+      activePane !== undefined && !collapsed
+        ? createElement('div', { className: 'dsh-wb-sidebar' },
+          createElement('div', { className: 'dsh-wb-sidebar-header' }, titleOf(activePane)),
+          renderView(ctx, activePane, activePane.id, sessionId, layout.activity === activeActivity?.id),
         )
         : null,
+      createElement('div', { className: 'dsh-wb-main' },
+        createElement(EditorArea, {
+          ctx,
+          service,
+          store,
+          tabs: layout.editorTabs,
+          activeTab: layout.activeEditorTab,
+          views: editorViews,
+          sessionId,
+        }),
+        layout.panelOpen && panelView !== undefined
+          ? createElement('div', { className: 'dsh-wb-panel' },
+            renderView(ctx, panelView, panelView.id, sessionId, layout.panelOpen),
+          )
+          : null,
+        createElement(StatusBar, { items: statusItems, ctx }),
+      ),
     ),
-    createElement(StatusBar, { items: statusItems, ctx }),
+    createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
   )
 }
 
@@ -141,15 +197,24 @@ function ActivityBar(props: {
   items: ActivityBarItemDefinition[]
   activeId: string | null
   onActivate: (id: string) => void
+  onContextMenu: (x: number, y: number) => void
 }): ReactNode {
-  const { items, activeId, onActivate } = props
-  return createElement('div', { className: 'dsh-wb-activity' },
-    items.map((item) => createElement('button', {
-      key: item.id,
-      className: activeId === item.id ? 'active' : undefined,
-      title: item.title,
-      onClick: () => onActivate(item.id),
-    }, item.icon)),
+  const { items, activeId, onActivate, onContextMenu } = props
+  return createElement('div', {
+    className: 'dsh-wb-activity',
+    // Right-click anywhere on the activity bar (icons or blank space)
+    // opens the dock position menu.
+    onContextMenu: (event: MouseEvent) => {
+      event.preventDefault()
+      onContextMenu(event.clientX, event.clientY)
+    },
+  },
+  items.map((item) => createElement('button', {
+    key: item.id,
+    className: activeId === item.id ? 'active' : undefined,
+    title: item.title,
+    onClick: () => onActivate(item.id),
+  }, renderIcon(item.icon, 18))),
   )
 }
 
@@ -176,7 +241,7 @@ function EditorArea(props: {
             className: `dsh-wb-tab${activeTab === tabId ? ' active' : ''}`,
             onClick: () => service.openEditorView(tabId),
           },
-          view.icon ?? null,
+          view.icon !== undefined ? renderIcon(view.icon, 14) : null,
           titleOf(view),
           createElement('button', {
             className: 'dsh-wb-tab-close',
