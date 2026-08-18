@@ -5,7 +5,7 @@
  * Phase 1 models one editor area with an ordered tab list; recursive
  * splits arrive in Phase 2.
  */
-import type { DockPosition, EditorOpenSeed, WorkbenchLayout } from './contract.ts'
+import type { DockPosition, EditorOpenSeed, FloatingWindow, WorkbenchLayout } from './contract.ts'
 
 export const DEFAULT_LAYOUT: WorkbenchLayout = {
   activity: null,
@@ -20,6 +20,7 @@ export const DEFAULT_LAYOUT: WorkbenchLayout = {
   autoHide: 'off',
   activityOrder: [],
   absorbNative: false,
+  floatingWindows: {},
 }
 
 const STORAGE_KEY = 'desk:layout'
@@ -73,6 +74,8 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
       ...(parsed.autoHide === 'edge' ? { autoHide: 'edge' as const } : {}),
       ...(Array.isArray(parsed.activityOrder) ? { activityOrder: parsed.activityOrder.filter((v): v is string => typeof v === 'string') } : {}),
       ...(parsed.absorbNative === true ? { absorbNative: true as const } : {}),
+      ...(parsed.floatingWindows !== undefined && parsed.floatingWindows !== null && typeof parsed.floatingWindows === 'object'
+        ? { floatingWindows: parsed.floatingWindows as Record<string, FloatingWindow> } : {}),
     }
   } catch {
     return null

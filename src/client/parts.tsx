@@ -14,11 +14,13 @@ import type {
   ActivityBarItemDefinition,
   DockPosition,
   EditorOpenSeed,
+  FloatingWindow,
   IconRef,
   IconSpec,
   ViewDefinition,
   ViewProps,
   WorkbenchContext,
+  WorkbenchLayout,
   WorkbenchService,
 } from './contract.ts'
 import type { LayoutStore } from './layout.ts'
@@ -273,6 +275,13 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         ),
     ),
     createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
+    createElement(FloatingWindows, {
+      ctx,
+      service,
+      layout,
+      sessionId,
+      views: editorViews,
+    }),
     ),
     // Edge hotspot: a 4px strip on the docked edge (outside the shell, which
     // may be slid off-screen) that revives the workbench on hover. Leaving
@@ -286,6 +295,99 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       })
       : null,
   )
+}
+
+/** Drag state of a floating window (move or resize, origin snapshot). */
+interface FloatingDrag {
+  id: string
+  mode: 'move' | 'resize'
+  startX: number
+  startY: number
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Independent floating windows (view + geometry), draggable/resizable. */
+function FloatingWindows(props: {
+  ctx: WorkbenchContext
+  service: WorkbenchService
+  layout: WorkbenchLayout
+  sessionId: string | undefined
+  views: ViewDefinition[]
+}): ReactNode {
+  const { ctx, service, layout, sessionId, views } = props
+  const viewById = useMemo(() => new Map(views.map((view) => [view.id, view])), [views])
+  const dragRef = useRef<FloatingDrag | null>(null)
+  const [dragging, setDragging] = useState(false)
+
+  useEffect(() => {
+    if (!dragging) return
+    const onMove = (event: MouseEvent): void => {
+      const drag = dragRef.current
+      if (drag === null) return
+      const dx = event.clientX - drag.startX
+      const dy = event.clientY - drag.startY
+      if (drag.mode === 'move') {
+        service.moveFloatingWindow(drag.id, drag.x + dx, drag.y + dy)
+      } else {
+        service.resizeFloatingWindow(drag.id, Math.max(240, drag.width + dx), Math.max(160, drag.height + dy))
+      }
+    }
+    const onUp = (): void => { dragRef.current = null; setDragging(false) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [dragging, service])
+
+  const startDrag = (win: FloatingWindow, mode: 'move' | 'resize', event: MouseEvent): void => {
+    event.preventDefault()
+    dragRef.current = { id: windowKey(win), mode, startX: event.clientX, startY: event.clientY, ...win }
+    setDragging(true)
+  }
+
+  return createElement(Fragment, null,
+    Object.values(layout.floatingWindows).map((win) => {
+      const view = viewById.get(win.viewId)
+      if (view === undefined) return null
+      const id = windowKey(win)
+      const seedTitle = (win.seed as { title?: string } | undefined)?.title
+      return createElement('div', {
+        key: id,
+        className: 'dsh-wb-floating',
+        style: { left: win.x, top: win.y, width: win.width, height: win.height },
+      },
+      createElement('div', {
+        className: 'dsh-wb-floating-head',
+        onMouseDown: (event: MouseEvent) => startDrag(win, 'move', event),
+      },
+      view.icon !== undefined ? renderIcon(view.icon, 13) : null,
+      createElement('span', { className: 'dsh-wb-floating-title' }, seedTitle ?? titleOf(view)),
+      createElement('button', {
+        className: 'dsh-wb-floating-close',
+        title: 'Close',
+        onClick: () => service.closeFloatingWindow(id),
+      }, '×'),
+      ),
+      createElement('div', { className: 'dsh-wb-floating-body' },
+        renderView(ctx, view, view.id, sessionId, true, win.seed),
+      ),
+      createElement('div', {
+        className: 'dsh-wb-floating-resize',
+        onMouseDown: (event: MouseEvent) => startDrag(win, 'resize', event),
+      }),
+      )
+    }),
+  )
+}
+
+/** Stable key of a floating window (viewId is single-instance in Phase 1). */
+function windowKey(win: FloatingWindow): string {
+  return win.viewId
 }
 
 function ActivityBar(props: {

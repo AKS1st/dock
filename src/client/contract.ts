@@ -142,6 +142,8 @@ export interface WorkbenchLayout {
    * shell in place with the workbench docked alongside.
    */
   absorbNative: boolean
+  /** Independent floating windows (viewId -> window). */
+  floatingWindows: Record<string, FloatingWindow>
 }
 
 /** Payload an editor view carries to the component (file path, title, custom state). */
@@ -152,6 +154,16 @@ export interface EditorOpenSeed {
   title?: string
   /** JSON-serializable custom state carried on the tab (persisted across reloads). */
   meta?: unknown
+}
+
+/** One independent floating window (view + geometry, persisted). */
+export interface FloatingWindow {
+  viewId: string
+  seed?: EditorOpenSeed
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 /** Options for opening a file path through the workbench (system entry). */
@@ -187,6 +199,15 @@ export interface WorkbenchService {
   openEditorView(viewId: string, seed?: EditorOpenSeed): void
   /** Close an editor view; unknown ids are a no-op. */
   closeEditorView(viewId: string): void
+
+  /** Open (or focus) a floating window carrying a view + seed. */
+  openFloatingWindow(windowId: string, viewId: string, seed?: EditorOpenSeed): void
+  /** Close a floating window; unknown ids are a no-op. */
+  closeFloatingWindow(windowId: string): void
+  /** Move a floating window (persisted). */
+  moveFloatingWindow(windowId: string, x: number, y: number): void
+  /** Resize a floating window (persisted). */
+  resizeFloatingWindow(windowId: string, width: number, height: number): void
 
   /**
    * Unified file-path entry: system interception (chat links, produced

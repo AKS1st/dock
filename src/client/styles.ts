@@ -10,6 +10,62 @@
  * by the base — feature plugins never touch global styles.
  */
 const CSS = `
+/* ── Floating windows: independent draggable/resizable view windows. ── */
+.dsh-wb-floating {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  min-height: 160px;
+  background: var(--dsw-alias-bg-layer-2, #ffffff);
+  border: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+.dsh-wb-floating-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  cursor: move;
+  user-select: none;
+  font-size: 12px;
+  color: var(--dsw-alias-label-primary, #1f2328);
+  background: var(--dsw-specific-sidebar-fill, #f0f1f3);
+  border-bottom: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+}
+.dsh-wb-floating-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dsh-wb-floating-close {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.5;
+  padding: 0 4px;
+}
+.dsh-wb-floating-close:hover { opacity: 1; }
+.dsh-wb-floating-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.dsh-wb-floating-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
 /* Layout push: #root yields the docked size on the docked edge. Horizontal
    docks shrink #root's width via margins; vertical docks compress its fixed
    height (height:100%) via padding with an explicit border-box so the app

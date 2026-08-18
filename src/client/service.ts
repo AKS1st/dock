@@ -126,6 +126,38 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     openEditorView(options?.viewId ?? 'editor', { path, title: options?.title })
   }
 
+  // Floating windows: viewId-keyed geometry, persisted through the layout.
+  const openFloatingWindow = (windowId: string, viewId: string, seed?: EditorOpenSeed): void => {
+    const current = store.getLayout()
+    const existing = current.floatingWindows[windowId]
+    const floatingWindows = {
+      ...current.floatingWindows,
+      [windowId]: existing === undefined
+        ? { viewId, seed, x: 120, y: 80, width: 520, height: 360 }
+        : { ...existing, viewId, ...(seed !== undefined ? { seed } : {}) },
+    }
+    store.update({ floatingWindows })
+  }
+  const closeFloatingWindow = (windowId: string): void => {
+    const current = store.getLayout()
+    if (current.floatingWindows[windowId] === undefined) return
+    const floatingWindows = { ...current.floatingWindows }
+    delete floatingWindows[windowId]
+    store.update({ floatingWindows })
+  }
+  const moveFloatingWindow = (windowId: string, x: number, y: number): void => {
+    const current = store.getLayout()
+    const win = current.floatingWindows[windowId]
+    if (win === undefined) return
+    store.update({ floatingWindows: { ...current.floatingWindows, [windowId]: { ...win, x, y } } })
+  }
+  const resizeFloatingWindow = (windowId: string, width: number, height: number): void => {
+    const current = store.getLayout()
+    const win = current.floatingWindows[windowId]
+    if (win === undefined) return
+    store.update({ floatingWindows: { ...current.floatingWindows, [windowId]: { ...win, width, height } } })
+  }
+
   return {
     registerActivityBarItem,
     registerPanel,
@@ -138,6 +170,10 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     onDidChangeLayout: (listener: () => void) => store.subscribe(listener),
     openEditorView,
     closeEditorView,
+    openFloatingWindow,
+    closeFloatingWindow,
+    moveFloatingWindow,
+    resizeFloatingWindow,
     openPath,
     registerOpenPathHandler,
     getPanel: (id) => panels.get(id),
