@@ -15,6 +15,8 @@
 import type {
   ActivityBarItemDefinition,
   CommandDefinition,
+  EditorOpenSeed,
+  OpenPathOptions,
   StatusBarItemDefinition,
   ViewDefinition,
   WorkbenchLayout,
@@ -83,13 +85,15 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     return command.run(...args)
   }
 
-  const openEditorView = (viewId: string): void => {
+  const openEditorView = (viewId: string, seed?: EditorOpenSeed): void => {
     const current = store.getLayout()
+    const editorSeeds = { ...current.editorSeeds }
+    if (seed !== undefined) editorSeeds[viewId] = seed
     if (current.editorTabs.includes(viewId)) {
-      store.update({ activeEditorTab: viewId })
+      store.update({ activeEditorTab: viewId, editorSeeds })
       return
     }
-    store.update({ editorTabs: [...current.editorTabs, viewId], activeEditorTab: viewId })
+    store.update({ editorTabs: [...current.editorTabs, viewId], activeEditorTab: viewId, editorSeeds })
   }
 
   const closeEditorView = (viewId: string): void => {
@@ -100,7 +104,26 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     if (activeEditorTab === viewId) {
       activeEditorTab = editorTabs.length > 0 ? editorTabs[editorTabs.length - 1]! : null
     }
-    store.update({ editorTabs, activeEditorTab })
+    const editorSeeds = { ...current.editorSeeds }
+    delete editorSeeds[viewId]
+    store.update({ editorTabs, activeEditorTab, editorSeeds })
+  }
+
+  // Open-path routing: the file-domain host (desk-files) registers a handler
+  // through registerOpenPathHandler; openPath dispatches to it (defaulting to
+  // the 'editor' view when no handler exists).
+  let openPathHandler: ((path: string, options?: OpenPathOptions) => void) | undefined
+  const registerOpenPathHandler = (handler: (path: string, options?: OpenPathOptions) => void): (() => void) => {
+    openPathHandler = handler
+    return () => { if (openPathHandler === handler) openPathHandler = undefined }
+  }
+  const openPath = (path: string, options?: OpenPathOptions): void => {
+    if (openPathHandler !== undefined) {
+      openPathHandler(path, options)
+      return
+    }
+    // No file-domain host: fall back to opening the default file view directly.
+    openEditorView(options?.viewId ?? 'editor', { path, title: options?.title })
   }
 
   return {
@@ -115,6 +138,8 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     onDidChangeLayout: (listener: () => void) => store.subscribe(listener),
     openEditorView,
     closeEditorView,
+    openPath,
+    registerOpenPathHandler,
     getPanel: (id) => panels.get(id),
     getEditorView: (id) => editorViews.get(id),
     getActivityItem: (id) => activityItems.get(id),

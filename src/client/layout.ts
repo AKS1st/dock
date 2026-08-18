@@ -5,12 +5,13 @@
  * Phase 1 models one editor area with an ordered tab list; recursive
  * splits arrive in Phase 2.
  */
-import type { DockPosition, WorkbenchLayout } from './contract.ts'
+import type { DockPosition, EditorOpenSeed, WorkbenchLayout } from './contract.ts'
 
 export const DEFAULT_LAYOUT: WorkbenchLayout = {
   activity: null,
   sideBarOpen: true,
   editorTabs: [],
+  editorSeeds: {},
   activeEditorTab: null,
   panelOpen: false,
   panelViewId: null,
@@ -62,6 +63,8 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
       ...(typeof parsed.activity === 'string' || parsed.activity === null ? { activity: parsed.activity } : {}),
       ...(typeof parsed.sideBarOpen === 'boolean' ? { sideBarOpen: parsed.sideBarOpen } : {}),
       ...(Array.isArray(parsed.editorTabs) ? { editorTabs: parsed.editorTabs.filter((t): t is string => typeof t === 'string') } : {}),
+      ...(parsed.editorSeeds !== undefined && parsed.editorSeeds !== null && typeof parsed.editorSeeds === 'object'
+        ? { editorSeeds: parsed.editorSeeds as Record<string, EditorOpenSeed | undefined> } : {}),
       ...(typeof parsed.activeEditorTab === 'string' || parsed.activeEditorTab === null ? { activeEditorTab: parsed.activeEditorTab } : {}),
       ...(typeof parsed.panelOpen === 'boolean' ? { panelOpen: parsed.panelOpen } : {}),
       ...(typeof parsed.panelViewId === 'string' || parsed.panelViewId === null ? { panelViewId: parsed.panelViewId } : {}),

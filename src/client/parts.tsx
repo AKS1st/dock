@@ -13,6 +13,7 @@ import type { ComponentType, ReactNode } from 'react'
 import type {
   ActivityBarItemDefinition,
   DockPosition,
+  EditorOpenSeed,
   IconRef,
   IconSpec,
   ViewDefinition,
@@ -82,9 +83,10 @@ function renderView(
   viewId: string,
   sessionId: string | undefined,
   active: boolean,
+  seed?: unknown,
 ): ReactNode {
   const Component = resolveViewComponent(def)
-  const props: ViewProps = { ctx, viewId, sessionId, active }
+  const props: ViewProps = { ctx, viewId, sessionId, active, seed }
   return createElement(
     Suspense,
     { fallback: createElement('div', { className: 'dsh-wb-editor-empty' }, 'Loading…') },
@@ -257,6 +259,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
             service,
             store,
             tabs: layout.editorTabs,
+            seeds: layout.editorSeeds,
             activeTab: layout.activeEditorTab,
             views: editorViews,
             sessionId,
@@ -348,11 +351,12 @@ function EditorArea(props: {
   service: WorkbenchService
   store: LayoutStore
   tabs: string[]
+  seeds: Record<string, EditorOpenSeed | undefined>
   activeTab: string | null
   views: ViewDefinition[]
   sessionId: string | undefined
 }): ReactNode {
-  const { ctx, service, store, tabs, activeTab, views, sessionId } = props
+  const { ctx, service, store, tabs, seeds, activeTab, views, sessionId } = props
   const viewById = useMemo(() => new Map(views.map((view) => [view.id, view])), [views])
   const activeView = activeTab === null ? undefined : viewById.get(activeTab)
   return createElement('div', { className: 'dsh-wb-editor' },
@@ -381,7 +385,7 @@ function EditorArea(props: {
       )
       : null,
     activeView !== undefined
-      ? renderView(ctx, activeView, activeView.id, sessionId, true)
+      ? renderView(ctx, activeView, activeView.id, sessionId, true, seeds[activeView.id])
       : createElement('div', { className: 'dsh-wb-editor-empty' }, 'Open a view from the activity bar or a plugin command.'),
   )
 }

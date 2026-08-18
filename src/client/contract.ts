@@ -35,6 +35,8 @@ export interface ViewProps {
   sessionId?: string
   /** Whether this view is the one on screen (inactive views may pause polling). */
   active: boolean
+  /** The open seed this tab was opened with (file path, title, meta). */
+  seed?: unknown
 }
 
 /** A view component, or a lazy factory resolving to one on first use. */
@@ -117,6 +119,8 @@ export interface WorkbenchLayout {
   sideBarOpen: boolean
   /** Open editor views in the editor area (tab order). */
   editorTabs: string[]
+  /** Per-view open seeds (path/title/meta), persisted with the tab layout. */
+  editorSeeds: Record<string, EditorOpenSeed | undefined>
   /** The focused editor view id. */
   activeEditorTab: string | null
   panelOpen: boolean
@@ -140,6 +144,24 @@ export interface WorkbenchLayout {
   absorbNative: boolean
 }
 
+/** Payload an editor view carries to the component (file path, title, custom state). */
+export interface EditorOpenSeed {
+  /** A file path the view loads (editor reads fs through its own route). */
+  path?: string
+  /** Overrides the descriptor title (the editor tab shows the file name). */
+  title?: string
+  /** JSON-serializable custom state carried on the tab (persisted across reloads). */
+  meta?: unknown
+}
+
+/** Options for opening a file path through the workbench (system entry). */
+export interface OpenPathOptions {
+  /** Explicit title (defaults to the file name). */
+  title?: string
+  /** Target editor view id (defaults to the registered default file view). */
+  viewId?: string
+}
+
 /**
  * The registry service published as `ctx.workbench` by the workbench base.
  * Every `register*` call returns a disposer that unregisters the item; the
@@ -161,10 +183,19 @@ export interface WorkbenchService {
   /** Subscribe to layout changes; returns the disposer. */
   onDidChangeLayout(listener: () => void): () => void
 
-  /** Open (or focus) an editor view in the editor area. */
-  openEditorView(viewId: string): void
+  /** Open (or focus) an editor view in the editor area, carrying a seed. */
+  openEditorView(viewId: string, seed?: EditorOpenSeed): void
   /** Close an editor view; unknown ids are a no-op. */
   closeEditorView(viewId: string): void
+
+  /**
+   * Unified file-path entry: system interception (chat links, produced
+   * files) and third-party plugins route here; the registered open-path
+   * handler (the file domain host, e.g. desk-files) owns the path.
+   */
+  openPath(path: string, options?: OpenPathOptions): void
+  /** The file-domain host declares it can open file paths. Returns the disposer. */
+  registerOpenPathHandler(handler: (path: string, options?: OpenPathOptions) => void): () => void
 
   /** Registry lookups (undefined when not registered). */
   getPanel(id: string): (ViewDefinition & { region: 'sideBar' | 'panel' }) | undefined
