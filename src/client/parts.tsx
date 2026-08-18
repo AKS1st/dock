@@ -173,7 +173,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   }
 
   // Auto-hide state machine: hovering the workbench keeps it visible; after
-  // the mouse leaves for 400ms it slides away; the edge hotspot revives it.
+  // the mouse leaves for ~1s it fades/slides away; the edge hotspot revives.
   const reveal = (): void => {
     if (hideTimer.current !== null) { window.clearTimeout(hideTimer.current); hideTimer.current = null }
     setAutoHidden(false)
@@ -181,7 +181,9 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const scheduleHide = (): void => {
     if (!autoHide) return
     if (hideTimer.current !== null) window.clearTimeout(hideTimer.current)
-    hideTimer.current = window.setTimeout(() => setAutoHidden(true), 400)
+    // A relaxed delay (macOS-like): the shell only slides away after the
+    // mouse has stayed outside for a moment, so brushing past never hides it.
+    hideTimer.current = window.setTimeout(() => setAutoHidden(true), 900)
   }
 
   const rootClass = [

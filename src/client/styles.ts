@@ -31,7 +31,8 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
   color: var(--dsw-alias-label-primary, #1f2328);
   transition: width 0.18s var(--ds-ease-in-out, ease),
               height 0.18s var(--ds-ease-in-out, ease),
-              transform 0.18s var(--ds-ease-in-out, ease);
+              transform 0.3s var(--ds-ease-out, ease-out),
+              opacity 0.3s var(--ds-ease-out, ease-out);
 }
 /* Docked edge + main direction (row for left/right, column for top/bottom). */
 .dsh-wb-root[data-dock="left"],
@@ -113,6 +114,10 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
 }
 .dsh-wb-activity button:hover { background: rgba(127, 127, 127, 0.15); }
 .dsh-wb-activity button.active { background: rgba(90, 120, 255, 0.18); }
+/* Dock mode: magnification is the only hover cue — no background tint on
+   hover or on the active item (the scale conveys state). */
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button:hover,
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.active { background: transparent; }
 /* Drag sorting feedback: the dragged item fades, the drop target highlights. */
 .dsh-wb-activity button[draggable="true"] { cursor: grab; }
 .dsh-wb-activity button.dragging { opacity: 0.4; cursor: grabbing; }
@@ -353,12 +358,23 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
 .dsh-wb-autohide-hotspot[data-dock="top"] { top: 0; left: 0; right: 0; height: 4px; }
 .dsh-wb-autohide-hotspot[data-dock="bottom"] { bottom: 0; left: 0; right: 0; height: 4px; }
 
+.dsh-wb-root.wb-autohidden { opacity: 0; }
 .dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="right"] { transform: translateX(calc(100% + 1px)); }
 .dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="left"] { transform: translateX(calc(-100% - 1px)); }
 .dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="top"] { transform: translateY(calc(-100% - 1px)); }
 .dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="bottom"] { transform: translateY(calc(100% + 1px)); }
+/* Dock mode: the bar fades out (visibility flips after the fade completes
+   so the opacity transition stays visible). */
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity,
+.dsh-wb-root[data-mode="dock"] .dsh-wb-sidebar {
+  transition: opacity 0.3s var(--ds-ease-out, ease-out),
+              visibility 0s linear 0.3s;
+}
 .dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-activity,
-.dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-sidebar { visibility: hidden; }
+.dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-sidebar {
+  opacity: 0;
+  visibility: hidden;
+}
 `
 
 export function mountStyles(): () => void {
