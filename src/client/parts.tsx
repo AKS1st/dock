@@ -143,26 +143,39 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const dockMode = layout.deskMode === 'dock'
   const absorbNative = layout.absorbNative === true
 
+  const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
+  const activePane = activeActivity === undefined || !layout.sideBarOpen
+    ? undefined
+    : panels.find((panel) => panel.id === activeActivity.paneId && panel.region === 'sideBar')
+  const panelView = layout.panelViewId === null ? undefined : service.getPanel(layout.panelViewId)
+
   // Layout push + dock edge: the shell sets --desk-size (the DSH app shell
   // yields it via #root margin) and mirrors the edge onto <body> so the
   // injected styles can target the right margin property. Dock mode never
   // pushes — the floating bar overlays the page like the macOS Dock. An
   // auto-hidden shell also yields nothing.
   useEffect(() => {
-    const size = (dockMode || autoHidden || absorbNative) ? 0 : (collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock])
+    // Width: docked size when the editor area is present; collapsed strip
+    // when nothing is open; strip + sidebar when only the file browser is
+    // shown (the editor column is hidden, so the shell must not leave a
+    // dead 720px column).
+    const mainShown = absorbNative || layout.editorTabs.length > 0 || layout.panelOpen
+    const sidebarShown = activePane !== undefined && !collapsed
+    let size: number
+    if (dockMode || autoHidden || absorbNative) {
+      size = 0
+    } else if (mainShown) {
+      size = collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock]
+    } else {
+      size = STRIP_SIZE[layout.dock] + (sidebarShown ? 240 : 0)
+    }
     document.documentElement.style.setProperty('--desk-size', `${size}px`)
     document.body.setAttribute('data-desk-dock', layout.dock)
     return () => {
       document.documentElement.style.removeProperty('--desk-size')
       document.body.removeAttribute('data-desk-dock')
     }
-  }, [collapsed, layout.dock, dockMode, autoHidden, absorbNative])
-
-  const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
-  const activePane = activeActivity === undefined || !layout.sideBarOpen
-    ? undefined
-    : panels.find((panel) => panel.id === activeActivity.paneId && panel.region === 'sideBar')
-  const panelView = layout.panelViewId === null ? undefined : service.getPanel(layout.panelViewId)
+  }, [collapsed, layout.dock, dockMode, autoHidden, absorbNative, layout.editorTabs.length, layout.panelOpen, activePane])
 
   const openDockMenu = (x: number, y: number): void => {
     const items: ContextMenuItem[] = [
@@ -255,24 +268,28 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       absorbNative
         // Absorb mode: the editor area hosts the DSH app shell (#root).
         ? createElement('div', { className: 'dsh-wb-main dsh-wb-absorb-main', ref: rootMountRef })
-        : createElement('div', { className: 'dsh-wb-main' },
-          createElement(EditorArea, {
-            ctx,
-            service,
-            store,
-            tabs: layout.editorTabs,
-            seeds: layout.editorSeeds,
-            activeTab: layout.activeEditorTab,
-            views: editorViews,
-            sessionId,
-          }),
-          layout.panelOpen && panelView !== undefined
-            ? createElement('div', { className: 'dsh-wb-panel' },
-              renderView(ctx, panelView, panelView.id, sessionId, layout.panelOpen),
-            )
-            : null,
-          createElement(StatusBar, { items: statusItems, ctx }),
-        ),
+        // No editor tabs and no panel: the whole editor area is hidden so the
+        // shell is just the activity bar + sidebar (no redundant empty column).
+        : (layout.editorTabs.length > 0 || layout.panelOpen
+          ? createElement('div', { className: 'dsh-wb-main' },
+            createElement(EditorArea, {
+              ctx,
+              service,
+              store,
+              tabs: layout.editorTabs,
+              seeds: layout.editorSeeds,
+              activeTab: layout.activeEditorTab,
+              views: editorViews,
+              sessionId,
+            }),
+            layout.panelOpen && panelView !== undefined
+              ? createElement('div', { className: 'dsh-wb-panel' },
+                renderView(ctx, panelView, panelView.id, sessionId, layout.panelOpen),
+              )
+              : null,
+            createElement(StatusBar, { items: statusItems, ctx }),
+          )
+          : null),
     ),
     createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
     createElement(FloatingWindows, {
