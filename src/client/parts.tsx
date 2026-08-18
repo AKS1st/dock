@@ -132,19 +132,21 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
 
   const sessionId = useSessionId(ctx)
   const collapsed = layout.activity === null
+  const dockMode = layout.deskMode === 'dock'
 
   // Layout push + dock edge: the shell sets --desk-size (the DSH app shell
   // yields it via #root margin) and mirrors the edge onto <body> so the
-  // injected styles can target the right margin property.
+  // injected styles can target the right margin property. Dock mode never
+  // pushes — the floating bar overlays the page like the macOS Dock.
   useEffect(() => {
-    const size = collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock]
+    const size = dockMode ? 0 : (collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock])
     document.documentElement.style.setProperty('--desk-size', `${size}px`)
     document.body.setAttribute('data-desk-dock', layout.dock)
     return () => {
       document.documentElement.style.removeProperty('--desk-size')
       document.body.removeAttribute('data-desk-dock')
     }
-  }, [collapsed, layout.dock])
+  }, [collapsed, layout.dock, dockMode])
 
   const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
   const activePane = activeActivity === undefined || !layout.sideBarOpen
@@ -153,20 +155,29 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const panelView = layout.panelViewId === null ? undefined : service.getPanel(layout.panelViewId)
 
   const openDockMenu = (x: number, y: number): void => {
-    const items: ContextMenuItem[] = (['left', 'right', 'top', 'bottom'] as DockPosition[]).map((dock) => ({
-      label: `停靠到${DOCK_LABEL[dock]}`,
-      checked: layout.dock === dock,
-      onClick: () => store.update({ dock }),
-    }))
+    const items: ContextMenuItem[] = [
+      ...(['left', 'right', 'top', 'bottom'] as DockPosition[]).map((dock) => ({
+        label: `停靠到${DOCK_LABEL[dock]}`,
+        checked: layout.dock === dock,
+        onClick: () => store.update({ dock }),
+      })),
+      { label: 'Dock 模式（macOS 风格）', kind: 'checkbox' as const, checked: dockMode, onClick: () => store.update({ deskMode: dockMode ? 'panel' : 'dock' }) },
+    ]
     setMenu({ x, y, items })
   }
 
   return createElement(
     'div',
-    { className: `dsh-wb-root${collapsed ? ' wb-collapsed' : ''}`, 'data-desk-shell': '', 'data-dock': layout.dock },
+    {
+      className: `dsh-wb-root${collapsed ? ' wb-collapsed' : ''}`,
+      'data-desk-shell': '',
+      'data-dock': layout.dock,
+      'data-mode': dockMode ? 'dock' : 'panel',
+    },
     createElement(ActivityBar, {
       items: activityItems,
       activeId: layout.activity,
+      dockMode,
       onActivate: (id) => {
         // Clicking the active item again collapses the side bar (VSCode toggle).
         store.update(layout.activity === id ? { activity: null } : { activity: id, sideBarOpen: true })
@@ -211,13 +222,15 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
 function ActivityBar(props: {
   items: ActivityBarItemDefinition[]
   activeId: string | null
+  dockMode: boolean
   onActivate: (id: string) => void
   onContextMenu: (x: number, y: number) => void
   onReorder: (draggedId: string, targetId: string) => void
 }): ReactNode {
-  const { items, activeId, onActivate, onContextMenu, onReorder } = props
+  const { items, activeId, dockMode, onActivate, onContextMenu, onReorder } = props
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   return createElement('div', {
     className: 'dsh-wb-activity',
     // Right-click anywhere on the activity bar (icons or blank space)
@@ -227,16 +240,21 @@ function ActivityBar(props: {
       onContextMenu(event.clientX, event.clientY)
     },
   },
-  items.map((item) => createElement('button', {
+  items.map((item, index) => createElement('button', {
     key: item.id,
     className: [
       activeId === item.id ? 'active' : undefined,
       draggingId === item.id ? 'dragging' : undefined,
       overId === item.id ? 'drag-over' : undefined,
+      // Fisheye magnification in dock mode: hovered item grows, neighbours nudge.
+      dockMode && hoverIndex === index ? 'dock-hover' : undefined,
+      dockMode && hoverIndex !== null && Math.abs(hoverIndex - index) === 1 ? 'dock-near' : undefined,
     ].filter(Boolean).join(' ') || undefined,
     title: item.title,
     draggable: true,
     onClick: () => onActivate(item.id),
+    onMouseEnter: () => { if (dockMode) setHoverIndex(index) },
+    onMouseLeave: () => { if (dockMode) setHoverIndex(null) },
     onDragStart: (event: DragEvent) => {
       setDraggingId(item.id)
       event.dataTransfer?.setData('text/plain', item.id)

@@ -13,7 +13,9 @@ import { createElement, useEffect, type ReactNode } from 'react'
 /** One menu row. */
 export interface ContextMenuItem {
   label: string
-  /** Renders a checked (radio) marker when true. */
+  /** Radio (●/○, default) or checkbox (✓/ ) marker. */
+  kind?: 'radio' | 'checkbox'
+  /** Renders a checked marker when true. */
   checked?: boolean
   onClick?: () => void
 }
@@ -62,7 +64,7 @@ export function ContextMenu(props: { menu: ContextMenuState | null; onClose: () 
   menu.items.map((item, index) => createElement('div', {
     key: `${item.label}-${index}`,
     className: 'dsh-wb-menu-item',
-    role: 'menuitemradio',
+    role: item.kind === 'checkbox' ? 'menuitemcheckbox' : 'menuitemradio',
     'aria-checked': item.checked ?? false,
     onClick: (event: MouseEvent) => {
       event.stopPropagation()
@@ -70,7 +72,8 @@ export function ContextMenu(props: { menu: ContextMenuState | null; onClose: () 
       onClose()
     },
   },
-  createElement('span', { className: 'dsh-wb-menu-mark' }, item.checked ? '●' : '○'),
+  createElement('span', { className: 'dsh-wb-menu-mark' },
+    item.kind === 'checkbox' ? (item.checked ? '✓' : ' ') : (item.checked ? '●' : '○')),
   item.label,
   )),
   )

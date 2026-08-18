@@ -234,6 +234,105 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
   text-align: center;
   color: var(--dsw-alias-label-secondary, #656d76);
 }
+
+/* ── Dock mode (macOS-like): the activity bar floats as a frosted capsule,
+   the workbench stops pushing the app shell (--desk-size is 0), the side
+   bar pops up as a floating panel next to the dock. ── */
+.dsh-wb-root[data-mode="dock"] {
+  background: transparent;
+  border: 0;
+  width: auto !important;
+  height: auto !important;
+  pointer-events: none;
+}
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity {
+  pointer-events: auto;
+  position: fixed;
+  z-index: 60;
+  background: var(--dsw-alias-bg-layer-2, rgba(255, 255, 255, 0.85));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  padding: 6px;
+  gap: 2px;
+}
+/* Centered on the docked edge; horizontal strip for top/bottom, vertical
+   strip for left/right. */
+.dsh-wb-root[data-mode="dock"][data-dock="bottom"] .dsh-wb-activity {
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  flex-direction: row;
+  width: auto;
+  height: auto;
+}
+.dsh-wb-root[data-mode="dock"][data-dock="top"] .dsh-wb-activity {
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  flex-direction: row;
+  width: auto;
+  height: auto;
+}
+.dsh-wb-root[data-mode="dock"][data-dock="left"] .dsh-wb-activity {
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+  width: auto;
+  height: auto;
+}
+.dsh-wb-root[data-mode="dock"][data-dock="right"] .dsh-wb-activity {
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+  width: auto;
+  height: auto;
+}
+/* Dock buttons: rounded capsule + magnification (fisheye) on hover. */
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button {
+  border-radius: 10px;
+  transition: transform 120ms ease;
+}
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.dock-hover { transform: scale(1.35); }
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.dock-near { transform: scale(1.08); }
+/* Dock mode hides the editor/panel area; the side bar becomes a floating
+   panel next to the dock. */
+.dsh-wb-root[data-mode="dock"] .dsh-wb-main { display: none; }
+.dsh-wb-root[data-mode="dock"] .dsh-wb-sidebar {
+  position: fixed;
+  z-index: 59;
+  width: 300px;
+  max-height: 70vh;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  background: var(--dsw-alias-bg-layer-2, #ffffff);
+}
+.dsh-wb-root[data-mode="dock"][data-dock="bottom"] .dsh-wb-sidebar {
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+}
+.dsh-wb-root[data-mode="dock"][data-dock="top"] .dsh-wb-sidebar {
+  left: 50%;
+  top: 84px;
+  transform: translateX(-50%);
+}
+.dsh-wb-root[data-mode="dock"][data-dock="left"] .dsh-wb-sidebar {
+  left: 84px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.dsh-wb-root[data-mode="dock"][data-dock="right"] .dsh-wb-sidebar {
+  right: 84px;
+  top: 50%;
+  transform: translateY(-50%);
+}
 `
 
 export function mountStyles(): () => void {
