@@ -10,10 +10,14 @@
  * by the base — feature plugins never touch global styles.
  */
 const CSS = `
-/* ── Floating windows: independent draggable/resizable view windows. ── */
+/* ── Floating windows: independent draggable/resizable view windows. They
+   must stay interactive even inside the dock root, which is
+   pointer-events:none (the floating panel and context menu needed the same
+   restoration). ── */
 .dsh-wb-floating {
   position: fixed;
   z-index: 70;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
   min-width: 240px;
