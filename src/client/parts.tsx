@@ -247,12 +247,14 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
     ),
     // Edge hotspot: a 4px strip on the docked edge (outside the shell, which
-    // may be slid off-screen) that revives the workbench on hover.
+    // may be slid off-screen) that revives the workbench on hover. Leaving
+    // it re-arms the hide timer so a revived workbench auto-hides again.
     autoHide
       ? createElement('div', {
         className: 'dsh-wb-autohide-hotspot',
         'data-dock': layout.dock,
         onMouseEnter: reveal,
+        onMouseLeave: scheduleHide,
       })
       : null,
   )
