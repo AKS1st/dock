@@ -488,7 +488,7 @@ function EditorArea(props: {
       : null,
     activeView !== undefined
       ? renderView(ctx, activeView, activeView.id, sessionId, true, seeds[activeView.id])
-      : createElement('div', { className: 'dsh-wb-editor-empty' }, 'Open a view from the activity bar or a plugin command.'),
+      : null,
   )
 }
 
