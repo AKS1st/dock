@@ -22,7 +22,7 @@ export const DEFAULT_LAYOUT: WorkbenchLayout = {
   floatingWindows: {},
 }
 
-const STORAGE_KEY = 'desk:layout'
+const STORAGE_KEY = 'dock:layout'
 
 export interface LayoutStore {
   getLayout(): WorkbenchLayout

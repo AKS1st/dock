@@ -1,5 +1,5 @@
 /**
- * Client half of desk: publishes the `ctx.workbench` registry
+ * Client half of dock: publishes the `ctx.workbench` registry
  * service, then mounts the workbench shell as a fixed right-docked root on
  * document.body (the base owns this single portal; feature plugins never
  * touch the page layout). DSH's native UI stays untouched in Phase 1 —
@@ -32,7 +32,7 @@ export function apply(ctx: WorkbenchContext): void {
     try {
       const unstyle = mountStyles()
       host = document.createElement('div')
-      host.setAttribute('data-desk', '')
+      host.setAttribute('data-dock', '')
       document.body.appendChild(host)
       root = createRoot(host)
       root.render(createElement(WorkbenchRoot, { ctx, service, store }))
@@ -43,12 +43,12 @@ export function apply(ctx: WorkbenchContext): void {
         unstyle()
       }
     } catch (error) {
-      console.error('[desk] mount error:', error)
+      console.error('[dock] mount error:', error)
       return () => {
         disposed = true
         root?.unmount()
         host?.remove()
       }
     }
-  }, 'desk: shell mount')
+  }, 'dock: shell mount')
 }

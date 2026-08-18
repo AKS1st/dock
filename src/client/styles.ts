@@ -1,12 +1,12 @@
 /**
  * Workbench shell styles, injected once by the client apply() as a
- * <style data-plugin="desk"> tag.
+ * <style data-plugin="dock"> tag.
  *
  * Layout model: the workbench docks to one of four screen edges
- * (`body[data-desk-dock]`). The shell is always `[activity][body]` in the
+ * (`body[data-dock]`). The shell is always `[activity][body]` in the
  * dock direction; `body` is `[sidebar][main]` (sidebar always on the left).
  * The DSH app shell (#root) gives up the occupied size through the
- * --desk-size CSS variable (layout push), exactly one global mutation owned
+ * --dock-size CSS variable (layout push), exactly one global mutation owned
  * by the base — feature plugins never touch global styles.
  */
 const CSS = `
@@ -87,17 +87,17 @@ const CSS = `
    height (height:100%) via padding with an explicit border-box so the app
    shell content is never overlapped and no scrollbar appears. */
 #root {
-  margin-right: var(--desk-size, 0px);
+  margin-right: var(--dock-size, 0px);
   transition: margin-right 0.18s var(--ds-ease-in-out, ease),
               margin-left 0.18s var(--ds-ease-in-out, ease),
               padding-top 0.18s var(--ds-ease-in-out, ease),
               padding-bottom 0.18s var(--ds-ease-in-out, ease);
 }
-body[data-desk-dock="left"] #root   { margin-right: 0; margin-left: var(--desk-size, 0px); }
-body[data-desk-dock="top"] #root,
-body[data-desk-dock="bottom"] #root { margin-right: 0; box-sizing: border-box; }
-body[data-desk-dock="top"] #root    { padding-top: var(--desk-size, 0px); }
-body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
+body[data-dock="left"] #root   { margin-right: 0; margin-left: var(--dock-size, 0px); }
+body[data-dock="top"] #root,
+body[data-dock="bottom"] #root { margin-right: 0; box-sizing: border-box; }
+body[data-dock="top"] #root    { padding-top: var(--dock-size, 0px); }
+body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 
 .dsh-wb-root {
   position: fixed;
@@ -117,7 +117,7 @@ body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
   top: 0;
   bottom: 0;
   flex-direction: row;
-  width: var(--desk-size, 720px);
+  width: var(--dock-size, 720px);
 }
 .dsh-wb-root[data-dock="left"]  { left: 0; border-right: 1px solid var(--dsw-alias-border-l2, #d8dbe0); }
 .dsh-wb-root[data-dock="right"] { right: 0; border-left: 1px solid var(--dsw-alias-border-l2, #d8dbe0); }
@@ -126,7 +126,7 @@ body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
   left: 0;
   right: 0;
   flex-direction: column;
-  height: var(--desk-size, 480px);
+  height: var(--dock-size, 480px);
 }
 .dsh-wb-root[data-dock="top"]    { top: 0; border-bottom: 1px solid var(--dsw-alias-border-l2, #d8dbe0); }
 .dsh-wb-root[data-dock="bottom"] { bottom: 0; border-top: 1px solid var(--dsw-alias-border-l2, #d8dbe0); }
@@ -327,7 +327,7 @@ body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
 }
 
 /* ── Dock mode (macOS-like): the activity bar floats as a frosted capsule,
-   the workbench stops pushing the app shell (--desk-size is 0), the side
+   the workbench stops pushing the app shell (--dock-size is 0), the side
    bar pops up as a floating panel next to the dock. ── */
 .dsh-wb-root[data-mode="dock"] {
   background: transparent;
@@ -485,10 +485,10 @@ body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
 `
 
 export function mountStyles(): () => void {
-  const existing = document.querySelector('style[data-plugin="desk"]')
+  const existing = document.querySelector('style[data-plugin="dock"]')
   if (existing !== null) existing.remove()
   const style = document.createElement('style')
-  style.setAttribute('data-plugin', 'desk')
+  style.setAttribute('data-plugin', 'dock')
   style.textContent = CSS
   document.head.appendChild(style)
   return () => { style.remove() }

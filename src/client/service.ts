@@ -42,35 +42,35 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
   }
 
   const registerActivityBarItem = (def: ActivityBarItemDefinition): (() => void) => {
-    if (activityItems.has(def.id)) throw new Error(`[desk] activity item "${def.id}" already registered`)
+    if (activityItems.has(def.id)) throw new Error(`[dock] activity item "${def.id}" already registered`)
     activityItems.set(def.id, def)
     notify()
     return () => { if (activityItems.get(def.id) === def) { activityItems.delete(def.id); notify() } }
   }
 
   const registerPanel = (def: ViewDefinition & { region: 'sideBar' | 'panel' }): (() => void) => {
-    if (panels.has(def.id)) throw new Error(`[desk] panel "${def.id}" already registered`)
+    if (panels.has(def.id)) throw new Error(`[dock] panel "${def.id}" already registered`)
     panels.set(def.id, def)
     notify()
     return () => { if (panels.get(def.id) === def) { panels.delete(def.id); notify() } }
   }
 
   const registerEditorView = (def: ViewDefinition): (() => void) => {
-    if (editorViews.has(def.id)) throw new Error(`[desk] editor view "${def.id}" already registered`)
+    if (editorViews.has(def.id)) throw new Error(`[dock] editor view "${def.id}" already registered`)
     editorViews.set(def.id, def)
     notify()
     return () => { if (editorViews.get(def.id) === def) { editorViews.delete(def.id); notify() } }
   }
 
   const registerStatusBarItem = (def: StatusBarItemDefinition): (() => void) => {
-    if (statusItems.has(def.id)) throw new Error(`[desk] status item "${def.id}" already registered`)
+    if (statusItems.has(def.id)) throw new Error(`[dock] status item "${def.id}" already registered`)
     statusItems.set(def.id, def)
     notify()
     return () => { if (statusItems.get(def.id) === def) { statusItems.delete(def.id); notify() } }
   }
 
   const registerCommand = (def: CommandDefinition): (() => void) => {
-    if (commands.has(def.id)) throw new Error(`[desk] command "${def.id}" already registered`)
+    if (commands.has(def.id)) throw new Error(`[dock] command "${def.id}" already registered`)
     commands.set(def.id, def)
     notify()
     return () => { if (commands.get(def.id) === def) { commands.delete(def.id); notify() } }
@@ -79,7 +79,7 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
   const executeCommand = async (id: string, ...args: unknown[]): Promise<unknown> => {
     const command = commands.get(id)
     if (command === undefined) {
-      console.warn(`[desk] unknown command "${id}"`)
+      console.warn(`[dock] unknown command "${id}"`)
       return undefined
     }
     return command.run(...args)
@@ -144,7 +144,7 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     store.update({ editorTabs, activeEditorTab, floatingWindows })
   }
 
-  // Open-path routing: the file-domain host (desk-files) registers a handler
+  // Open-path routing: the file-domain host (dock-files) registers a handler
   // through registerOpenPathHandler; openPath dispatches to it (defaulting to
   // the 'editor' view when no handler exists).
   let openPathHandler: ((path: string, options?: OpenPathOptions) => void) | undefined

@@ -1,5 +1,5 @@
 /**
- * tsdown build for desk, following the minimal plugin pattern
+ * tsdown build for dock, following the minimal plugin pattern
  * (dsh-mermaid / dsh-login): the host half compiles with tsc to
  * lib/types (ESM node) and tsdown repackages it to lib/index.js; the client
  * half bundles src/client/index.ts into a single CJS closure factory
@@ -10,7 +10,7 @@
  * everything else. Phase 1 has no lazy chunks: the /workbench/bundle code
  * splitting mechanism is planned for Phase 2.
  */
-const id = 'desk'
+const id = 'dock'
 
 /** Module specifiers the web shell shares into the frozen module table. */
 const CLIENT_EXTERNALS = [

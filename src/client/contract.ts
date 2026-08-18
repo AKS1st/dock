@@ -1,8 +1,8 @@
 /**
- * Public contract of the desk base (client side).
+ * Public contract of the dock base (client side).
  *
  * Feature plugins consume this contract via type-only import
- * (`import type {} from 'desk/client/contract'`), which also pulls
+ * (`import type {} from 'dock/client/contract'`), which also pulls
  * in the `Context.workbench` augmentation below — the single restatement
  * point, so plugins never re-declare the service on their own (purity gate
  * friendly: type-only imports are erased at build time).
@@ -43,7 +43,7 @@ export interface ViewProps {
 export type ViewComponent = ComponentType<ViewProps> | (() => Promise<ComponentType<ViewProps>>)
 
 /**
- * An SVG icon spec, rendered by the desk shell with `currentColor` so it
+ * An SVG icon spec, rendered by the dock shell with `currentColor` so it
  * follows the theme. `path` is a single SVG path `d` (fill style by
  * default; `stroke: true` switches to lucide-style stroke rendering).
  */
@@ -219,7 +219,7 @@ export interface WorkbenchService {
   /**
    * Unified file-path entry: system interception (chat links, produced
    * files) and third-party plugins route here; the registered open-path
-   * handler (the file domain host, e.g. desk-files) owns the path.
+   * handler (the file domain host, e.g. dock-files) owns the path.
    */
   openPath(path: string, options?: OpenPathOptions): void
   /** The file-domain host declares it can open file paths. Returns the disposer. */

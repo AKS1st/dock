@@ -150,7 +150,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     : panels.find((panel) => panel.id === activeActivity.paneId && panel.region === 'sideBar')
   const panelView = layout.panelViewId === null ? undefined : service.getPanel(layout.panelViewId)
 
-  // Layout push + dock edge: the shell sets --desk-size (the DSH app shell
+  // Layout push + dock edge: the shell sets --dock-size (the DSH app shell
   // yields it via #root margin) and mirrors the edge onto <body> so the
   // injected styles can target the right margin property. Dock mode never
   // pushes — the floating bar overlays the page like the macOS Dock. An
@@ -170,11 +170,11 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     } else {
       size = STRIP_SIZE[layout.dock] + (sidebarShown ? 240 : 0)
     }
-    document.documentElement.style.setProperty('--desk-size', `${size}px`)
-    document.body.setAttribute('data-desk-dock', layout.dock)
+    document.documentElement.style.setProperty('--dock-size', `${size}px`)
+    document.body.setAttribute('data-dock', layout.dock)
     return () => {
-      document.documentElement.style.removeProperty('--desk-size')
-      document.body.removeAttribute('data-desk-dock')
+      document.documentElement.style.removeProperty('--dock-size')
+      document.body.removeAttribute('data-dock')
     }
   }, [collapsed, layout.dock, dockMode, autoHidden, absorbNative, layout.editorTabs.length, layout.panelOpen, activePane])
 
@@ -237,7 +237,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       'div',
       {
         className: absorbNative ? `${rootClass} wb-absorb` : rootClass,
-        'data-desk-shell': '',
+        'data-dock-shell': '',
         'data-dock': layout.dock,
         'data-mode': dockMode ? 'dock' : 'panel',
         onMouseEnter: reveal,

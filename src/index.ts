@@ -1,5 +1,5 @@
 /**
- * Host half of desk — Phase 1 empty shell.
+ * Host half of dock — Phase 1 empty shell.
  *
  * The base owns the *window* (client layout shell + registry service); all
  * feature domains (fs / git / terminal / ...) live in feature plugins with
@@ -8,7 +8,7 @@
  * (cross-plugin layout sharing, permissions manifest, /workbench/bundle
  * chunk serving) land in Phase 2+.
  */
-export const name = 'desk'
+export const name = 'dock'
 
 /** No host-side services required yet. */
 export function apply(): void {

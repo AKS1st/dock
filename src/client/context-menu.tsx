@@ -1,5 +1,5 @@
 /**
- * Minimal context menu for the desk shell (right-click on the activity bar).
+ * Minimal context menu for the dock shell (right-click on the activity bar).
  * A single fixed-position popup with checkable items; closes on outside
  * mousedown, scroll, blur or Escape. Styles live in styles.ts (`.dsh-wb-menu*`)
  * so the menu follows the DSH theme tokens like the rest of the shell.
