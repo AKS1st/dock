@@ -380,6 +380,30 @@ body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
   opacity: 0;
   visibility: hidden;
 }
+
+/* ── Absorb mode: the workbench takes over the full viewport and hosts the
+   DSH app shell (#root) in the editor area — the harness UI becomes the
+   base's default view. Fixed layout: activity | sidebar | main. ── */
+.dsh-wb-root.wb-absorb {
+  inset: 0;
+  width: auto !important;
+  height: auto !important;
+  border: 0;
+  flex-direction: row;
+  background: var(--dsw-alias-bg-base, #ffffff);
+}
+.dsh-wb-root.wb-absorb .dsh-wb-activity {
+  border-right: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+}
+.dsh-wb-root.wb-absorb .dsh-wb-main {
+  background: var(--dsw-alias-bg-base, #ffffff);
+  overflow: hidden;
+}
+/* The moved #root fills the editor area (height:100% relative to main). */
+.dsh-wb-root.wb-absorb .dsh-wb-absorb-main > #root {
+  height: 100%;
+  width: 100%;
+}
 `
 
 export function mountStyles(): () => void {

@@ -130,6 +130,14 @@ export interface WorkbenchLayout {
   autoHide: 'off' | 'edge'
   /** User-ordered activity items (drag-sorted; items not listed keep their registered order). */
   activityOrder: string[]
+  /**
+   * Absorb the DSH native UI: when true the workbench takes over the whole
+   * viewport (fixed layout: activity | sideBar | editor area) and the app
+   * shell (#root — session list, chat, input bar, settings) is moved into
+   * the editor area as the base's default view. False keeps the DSH app
+   * shell in place with the workbench docked alongside.
+   */
+  absorbNative: boolean
 }
 
 /**

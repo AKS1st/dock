@@ -18,6 +18,7 @@ export const DEFAULT_LAYOUT: WorkbenchLayout = {
   deskMode: 'panel',
   autoHide: 'off',
   activityOrder: [],
+  absorbNative: false,
 }
 
 const STORAGE_KEY = 'desk:layout'
@@ -68,6 +69,7 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
       ...(parsed.deskMode === 'dock' ? { deskMode: 'dock' as const } : {}),
       ...(parsed.autoHide === 'edge' ? { autoHide: 'edge' as const } : {}),
       ...(Array.isArray(parsed.activityOrder) ? { activityOrder: parsed.activityOrder.filter((v): v is string => typeof v === 'string') } : {}),
+      ...(parsed.absorbNative === true ? { absorbNative: true as const } : {}),
     }
   } catch {
     return null

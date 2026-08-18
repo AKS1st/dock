@@ -137,6 +137,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const sessionId = useSessionId(ctx)
   const collapsed = layout.activity === null
   const dockMode = layout.deskMode === 'dock'
+  const absorbNative = layout.absorbNative === true
 
   // Layout push + dock edge: the shell sets --desk-size (the DSH app shell
   // yields it via #root margin) and mirrors the edge onto <body> so the
@@ -144,14 +145,14 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   // pushes — the floating bar overlays the page like the macOS Dock. An
   // auto-hidden shell also yields nothing.
   useEffect(() => {
-    const size = (dockMode || autoHidden) ? 0 : (collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock])
+    const size = (dockMode || autoHidden || absorbNative) ? 0 : (collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock])
     document.documentElement.style.setProperty('--desk-size', `${size}px`)
     document.body.setAttribute('data-desk-dock', layout.dock)
     return () => {
       document.documentElement.style.removeProperty('--desk-size')
       document.body.removeAttribute('data-desk-dock')
     }
-  }, [collapsed, layout.dock, dockMode, autoHidden])
+  }, [collapsed, layout.dock, dockMode, autoHidden, absorbNative])
 
   const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
   const activePane = activeActivity === undefined || !layout.sideBarOpen
@@ -168,6 +169,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       })),
       { label: 'Dock 模式（macOS 风格）', kind: 'checkbox' as const, checked: dockMode, onClick: () => store.update({ deskMode: dockMode ? 'panel' : 'dock' }) },
       { label: '自动隐藏（鼠标远离收起）', kind: 'checkbox' as const, checked: autoHide, onClick: () => store.update({ autoHide: autoHide ? 'off' : 'edge' }) },
+      { label: '吸收 DSH 原生界面', kind: 'checkbox' as const, checked: absorbNative, onClick: () => store.update({ absorbNative: !absorbNative }) },
     ]
     setMenu({ x, y, items })
   }
@@ -192,13 +194,31 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     autoHidden ? 'wb-autohidden' : undefined,
   ].filter(Boolean).join(' ')
 
+  // Absorb mode: move the DSH app shell (#root) into the editor area mount;
+  // restore it to <body> on disable/HMR so the native UI survives.
+  const rootMountRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!absorbNative) return
+    const rootEl = document.getElementById('root')
+    const mount = rootMountRef.current
+    if (rootEl !== null && mount !== null && rootEl.parentElement !== mount) {
+      mount.appendChild(rootEl)
+    }
+    return () => {
+      const el = document.getElementById('root')
+      if (el !== null && mount !== null && el.parentElement === mount) {
+        document.body.appendChild(el)
+      }
+    }
+  }, [absorbNative])
+
   return createElement(
     Fragment,
     null,
     createElement(
       'div',
       {
-        className: rootClass,
+        className: absorbNative ? `${rootClass} wb-absorb` : rootClass,
         'data-desk-shell': '',
         'data-dock': layout.dock,
         'data-mode': dockMode ? 'dock' : 'panel',
@@ -228,23 +248,26 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
           renderView(ctx, activePane, activePane.id, sessionId, layout.activity === activeActivity?.id),
         )
         : null,
-      createElement('div', { className: 'dsh-wb-main' },
-        createElement(EditorArea, {
-          ctx,
-          service,
-          store,
-          tabs: layout.editorTabs,
-          activeTab: layout.activeEditorTab,
-          views: editorViews,
-          sessionId,
-        }),
-        layout.panelOpen && panelView !== undefined
-          ? createElement('div', { className: 'dsh-wb-panel' },
-            renderView(ctx, panelView, panelView.id, sessionId, layout.panelOpen),
-          )
-          : null,
-        createElement(StatusBar, { items: statusItems, ctx }),
-      ),
+      absorbNative
+        // Absorb mode: the editor area hosts the DSH app shell (#root).
+        ? createElement('div', { className: 'dsh-wb-main dsh-wb-absorb-main', ref: rootMountRef })
+        : createElement('div', { className: 'dsh-wb-main' },
+          createElement(EditorArea, {
+            ctx,
+            service,
+            store,
+            tabs: layout.editorTabs,
+            activeTab: layout.activeEditorTab,
+            views: editorViews,
+            sessionId,
+          }),
+          layout.panelOpen && panelView !== undefined
+            ? createElement('div', { className: 'dsh-wb-panel' },
+              renderView(ctx, panelView, panelView.id, sessionId, layout.panelOpen),
+            )
+            : null,
+          createElement(StatusBar, { items: statusItems, ctx }),
+        ),
     ),
     createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
     ),
