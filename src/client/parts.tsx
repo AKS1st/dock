@@ -21,6 +21,7 @@ import type {
   WorkbenchService,
 } from './contract.ts'
 import type { LayoutStore } from './layout.ts'
+import { reorderActivity } from './layout.ts'
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from './context-menu'
 
 /** Sort helper shared by item lists. */
@@ -116,7 +117,15 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   )
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
 
-  const activityItems = useMemo(() => [...service.getActivityItems()].sort(byOrder), [registry, service])
+  const activityItems = useMemo(() => {
+    // User drag order (activityOrder) wins; items not listed keep their
+    // registered `order` and are appended in declaration order.
+    const all = [...service.getActivityItems()].sort(byOrder)
+    const byId = new Map(all.map((item) => [item.id, item]))
+    const userOrdered = layout.activityOrder.map((id) => byId.get(id)).filter((item): item is ActivityBarItemDefinition => item !== undefined)
+    const rest = all.filter((item) => !layout.activityOrder.includes(item.id))
+    return [...userOrdered, ...rest]
+  }, [registry, service, layout.activityOrder])
   const panels = useMemo(() => [...service.getPanels()].sort(byOrder), [registry, service])
   const editorViews = useMemo(() => [...service.getEditorViews()].sort(byOrder), [registry, service])
   const statusItems = useMemo(() => [...service.getStatusItems()].sort(byOrder), [registry, service])
@@ -163,6 +172,12 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         store.update(layout.activity === id ? { activity: null } : { activity: id, sideBarOpen: true })
       },
       onContextMenu: (x, y) => openDockMenu(x, y),
+      onReorder: (draggedId, targetId) => {
+        // Reorder by the current visible order and persist the full user
+        // order into activityOrder (newly registered items append later).
+        const next = reorderActivity(activityItems.map((item) => item.id), draggedId, targetId)
+        store.update({ activityOrder: next })
+      },
     }),
     createElement('div', { className: 'dsh-wb-body' },
       activePane !== undefined && !collapsed
@@ -198,8 +213,11 @@ function ActivityBar(props: {
   activeId: string | null
   onActivate: (id: string) => void
   onContextMenu: (x: number, y: number) => void
+  onReorder: (draggedId: string, targetId: string) => void
 }): ReactNode {
-  const { items, activeId, onActivate, onContextMenu } = props
+  const { items, activeId, onActivate, onContextMenu, onReorder } = props
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null>(null)
   return createElement('div', {
     className: 'dsh-wb-activity',
     // Right-click anywhere on the activity bar (icons or blank space)
@@ -211,9 +229,32 @@ function ActivityBar(props: {
   },
   items.map((item) => createElement('button', {
     key: item.id,
-    className: activeId === item.id ? 'active' : undefined,
+    className: [
+      activeId === item.id ? 'active' : undefined,
+      draggingId === item.id ? 'dragging' : undefined,
+      overId === item.id ? 'drag-over' : undefined,
+    ].filter(Boolean).join(' ') || undefined,
     title: item.title,
+    draggable: true,
     onClick: () => onActivate(item.id),
+    onDragStart: (event: DragEvent) => {
+      setDraggingId(item.id)
+      event.dataTransfer?.setData('text/plain', item.id)
+      event.dataTransfer!.effectAllowed = 'move'
+    },
+    onDragEnd: () => { setDraggingId(null); setOverId(null) },
+    onDragOver: (event: DragEvent) => {
+      event.preventDefault()
+      if (draggingId !== null && draggingId !== item.id) setOverId(item.id)
+    },
+    onDragLeave: () => { if (overId === item.id) setOverId(null) },
+    onDrop: (event: DragEvent) => {
+      event.preventDefault()
+      const dragged = draggingId ?? event.dataTransfer?.getData('text/plain')
+      if (dragged !== undefined && dragged !== item.id) onReorder(dragged, item.id)
+      setDraggingId(null)
+      setOverId(null)
+    },
   }, renderIcon(item.icon, 18))),
   )
 }

@@ -36,6 +36,21 @@ export interface LayoutStorage {
 
 const DOCKS: readonly DockPosition[] = ['left', 'right', 'top', 'bottom']
 
+/**
+ * Reorder an id list by moving `draggedId` to `targetId`'s position
+ * (insert-before-target semantics). Pure and side-effect free so the drag
+ * ordering logic is unit-testable. Unknown ids are left untouched.
+ */
+export function reorderActivity(ids: readonly string[], draggedId: string, targetId: string): string[] {
+  const from = ids.indexOf(draggedId)
+  const to = ids.indexOf(targetId)
+  if (from === -1 || to === -1) return [...ids]
+  const next = [...ids]
+  next.splice(from, 1)
+  next.splice(to, 0, draggedId)
+  return next
+}
+
 function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
   try {
     const raw = storage.getItem(STORAGE_KEY)

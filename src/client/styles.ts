@@ -112,6 +112,12 @@ body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk
 }
 .dsh-wb-activity button:hover { background: rgba(127, 127, 127, 0.15); }
 .dsh-wb-activity button.active { background: rgba(90, 120, 255, 0.18); }
+/* Drag sorting feedback: the dragged item fades, the drop target highlights. */
+.dsh-wb-activity button[draggable="true"] { cursor: grab; }
+.dsh-wb-activity button.dragging { opacity: 0.4; cursor: grabbing; }
+.dsh-wb-activity button.drag-over {
+  background: var(--dsw-alias-interactive-bg-hover-accent, rgba(90, 120, 255, 0.25));
+}
 
 .dsh-wb-body {
   flex: 1;
