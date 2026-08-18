@@ -10,17 +10,22 @@
  * by the base — feature plugins never touch global styles.
  */
 const CSS = `
-/* Layout push: #root yields the docked size on the docked edge. */
+/* Layout push: #root yields the docked size on the docked edge. Horizontal
+   docks shrink #root's width via margins; vertical docks compress its fixed
+   height (height:100%) via padding with an explicit border-box so the app
+   shell content is never overlapped and no scrollbar appears. */
 #root {
   margin-right: var(--desk-size, 0px);
   transition: margin-right 0.18s var(--ds-ease-in-out, ease),
               margin-left 0.18s var(--ds-ease-in-out, ease),
-              margin-top 0.18s var(--ds-ease-in-out, ease),
-              margin-bottom 0.18s var(--ds-ease-in-out, ease);
+              padding-top 0.18s var(--ds-ease-in-out, ease),
+              padding-bottom 0.18s var(--ds-ease-in-out, ease);
 }
 body[data-desk-dock="left"] #root   { margin-right: 0; margin-left: var(--desk-size, 0px); }
-body[data-desk-dock="top"] #root    { margin-right: 0; margin-top: var(--desk-size, 0px); }
-body[data-desk-dock="bottom"] #root { margin-right: 0; margin-bottom: var(--desk-size, 0px); }
+body[data-desk-dock="top"] #root,
+body[data-desk-dock="bottom"] #root { margin-right: 0; box-sizing: border-box; }
+body[data-desk-dock="top"] #root    { padding-top: var(--desk-size, 0px); }
+body[data-desk-dock="bottom"] #root { padding-bottom: var(--desk-size, 0px); }
 
 .dsh-wb-root {
   position: fixed;
