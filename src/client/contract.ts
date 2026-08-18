@@ -64,7 +64,17 @@ export interface IconSpec {
  */
 export type IconRef = ReactNode | IconSpec
 
-/** One view registered into a workbench region (side bar pane / editor area tab / panel). */
+/** Input handed to a view's `beforeClose` hook when one of its instances is about to close. */
+export interface CloseRequest {
+  /** The view's registered id. */
+  viewId: string
+  /** The instance being closed (shared vocabulary with editorTabs / floatingWindows). */
+  instanceId: string
+  /** The instance's open seed — views read instance-level state (e.g. `seed.meta?.dirty`) here. */
+  seed?: EditorOpenSeed
+}
+
+/** One view registered into a workbench region (side bar pane / editor area tab). */
 export interface ViewDefinition {
   /** Unique id; also the `viewId` handed to the component. */
   id: string
@@ -76,6 +86,16 @@ export interface ViewDefinition {
   order?: number
   /** The component (or lazy factory). */
   component: ViewComponent
+  /**
+   * Close gate: called with the instance's `{ viewId, instanceId, seed }`
+   * before the shell removes its tab / floating window. Return `false` (or a
+   * promise resolving to `false`) to cancel the close; any other value lets
+   * it proceed. Views use this to confirm unsaved changes — typically read
+   * `seed.meta?.dirty` and `window.confirm(...)` themselves. The hook is
+   * definition-level (registered once with the view); per-instance state
+   * lives on the seed (see `updateViewSeed`).
+   */
+  beforeClose?(instance: CloseRequest): boolean | Promise<boolean>
 }
 
 /** One activity-bar item (the left vertical strip, VSCode style). */
@@ -109,9 +129,10 @@ export type DockPosition = 'left' | 'right' | 'top' | 'bottom'
 
 /**
  * The workbench layout snapshot: which activity is active, whether the side
- * bar is open, which editor views are open (tab strip), the bottom panel
- * state, and the dock configuration (edge / presentation mode / auto-hide —
- * the latter two land in later phases and default to 'panel' / 'off').
+ * bar is open, which editor views are open (tab strip), the dock
+ * configuration (edge / auto-hide), and the independent floating windows.
+ * The workbench always runs in dock mode (macOS-like floating bar); the
+ * embedded panel presentation was removed.
  */
 export interface WorkbenchLayout {
   /** Active activity-bar item id; null collapses the workbench to the strip. */
@@ -121,13 +142,8 @@ export interface WorkbenchLayout {
   editorTabs: EditorTab[]
   /** The focused editor instance id. */
   activeEditorTab: string | null
-  panelOpen: boolean
-  /** The panel's current view id. */
-  panelViewId: string | null
   /** The screen edge this workbench docks to. */
   dock: DockPosition
-  /** Presentation mode: 'panel' (embedded) or 'dock' (macOS-like floating). */
-  deskMode: 'panel' | 'dock'
   /** Auto-hide behavior: 'off' (always visible) or 'edge' (hide when the mouse leaves). */
   autoHide: 'off' | 'edge'
   /** User-ordered activity items (drag-sorted; items not listed keep their registered order). */
@@ -190,7 +206,7 @@ export interface OpenPathOptions {
  */
 export interface WorkbenchService {
   registerActivityBarItem(def: ActivityBarItemDefinition): () => void
-  registerPanel(def: ViewDefinition & { region: 'sideBar' | 'panel' }): () => void
+  registerPanel(def: ViewDefinition & { region: 'sideBar' }): () => void
   registerEditorView(def: ViewDefinition): () => void
   registerStatusBarItem(def: StatusBarItemDefinition): () => void
   registerCommand(def: CommandDefinition): () => void
@@ -207,10 +223,30 @@ export interface WorkbenchService {
    * Open (or focus) one view instance. Defaults to the editor area (tab);
    * options.floating hosts it in an independent floating window. Returns
    * the instance id (a matching open focuses the existing instance).
+   * Replacing an existing instance's seed — opening a new file into an
+   * already-open window/tab — is gated by the view's `beforeClose` hook
+   * exactly like closing it: a `false` verdict aborts the open and keeps the
+   * old seed, so a dirty editor's content is never silently discarded.
    */
   openView(viewId: string, seed?: EditorOpenSeed, options?: { floating?: boolean }): string
-  /** Close a view instance wherever it lives (tab or floating); unknown ids are a no-op. */
+  /**
+   * Close a view instance wherever it lives (tab or floating); unknown ids
+   * are a no-op. Before removing the instance the shell consults the
+   * instance's view definition: when the view registered a `beforeClose`
+   * hook it is called with `{ viewId, instanceId, seed }`; returning `false`
+   * (or a promise resolving to `false`) cancels the close. The call is
+   * fire-and-forget — with an async hook the confirm dialog shows while the
+   * layout stays untouched, and the removal happens on approval.
+   */
   closeViewInstance(instanceId: string): void
+  /**
+   * Patch one open instance's seed in place (editor tab or floating window;
+   * unknown ids are a no-op). `patch.meta` is shallow-merged into the
+   * instance's current meta when both are plain objects, so an editor writes
+   * its dirty flag as `updateViewSeed(id, { meta: { dirty: true } })`; all
+   * other patch fields replace the seed's field wholesale.
+   */
+  updateViewSeed(instanceId: string, patch: Partial<EditorOpenSeed>): void
   /** Move a floating window (persisted); instanceId-keyed. */
   moveFloatingWindow(instanceId: string, x: number, y: number): void
   /** Resize a floating window (persisted); instanceId-keyed. */
@@ -226,11 +262,11 @@ export interface WorkbenchService {
   registerOpenPathHandler(handler: (path: string, options?: OpenPathOptions) => void): () => void
 
   /** Registry lookups (undefined when not registered). */
-  getPanel(id: string): (ViewDefinition & { region: 'sideBar' | 'panel' }) | undefined
+  getPanel(id: string): (ViewDefinition & { region: 'sideBar' }) | undefined
   getEditorView(id: string): ViewDefinition | undefined
   getActivityItem(id: string): ActivityBarItemDefinition | undefined
   /** Snapshot of all registered items (for the shell render). */
-  getPanels(): readonly (ViewDefinition & { region: 'sideBar' | 'panel' })[]
+  getPanels(): readonly (ViewDefinition & { region: 'sideBar' })[]
   getEditorViews(): readonly ViewDefinition[]
   getActivityItems(): readonly ActivityBarItemDefinition[]
   getStatusItems(): readonly StatusBarItemDefinition[]

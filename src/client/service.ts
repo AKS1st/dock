@@ -14,6 +14,7 @@
  */
 import type {
   ActivityBarItemDefinition,
+  CloseRequest,
   CommandDefinition,
   EditorOpenSeed,
   OpenPathOptions,
@@ -24,9 +25,26 @@ import type {
 } from './contract.ts'
 import type { LayoutStore } from './layout.ts'
 
+/**
+ * Merge a seed patch onto an existing seed. `patch.meta` is shallow-merged
+ * into the current meta when both are plain objects (an editor writes its
+ * dirty flag as `{ meta: { dirty: true } }` without knowing the rest of the
+ * meta); every other patch field replaces its seed counterpart wholesale.
+ */
+function mergeSeed(seed: EditorOpenSeed | undefined, patch: Partial<EditorOpenSeed>): EditorOpenSeed {
+  const base = seed ?? {}
+  const meta = patch.meta === undefined
+    ? base.meta
+    : (typeof patch.meta === 'object' && patch.meta !== null
+        && typeof base.meta === 'object' && base.meta !== null
+      ? { ...(base.meta as Record<string, unknown>), ...(patch.meta as Record<string, unknown>) }
+      : patch.meta)
+  return { ...base, ...patch, meta }
+}
+
 export function createWorkbenchService(store: LayoutStore): WorkbenchService {
   const activityItems = new Map<string, ActivityBarItemDefinition>()
-  const panels = new Map<string, ViewDefinition & { region: 'sideBar' | 'panel' }>()
+  const panels = new Map<string, ViewDefinition & { region: 'sideBar' }>()
   const editorViews = new Map<string, ViewDefinition>()
   const statusItems = new Map<string, StatusBarItemDefinition>()
   const commands = new Map<string, CommandDefinition>()
@@ -48,7 +66,7 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     return () => { if (activityItems.get(def.id) === def) { activityItems.delete(def.id); notify() } }
   }
 
-  const registerPanel = (def: ViewDefinition & { region: 'sideBar' | 'panel' }): (() => void) => {
+  const registerPanel = (def: ViewDefinition & { region: 'sideBar' }): (() => void) => {
     if (panels.has(def.id)) throw new Error(`[dock] panel "${def.id}" already registered`)
     panels.set(def.id, def)
     notify()
@@ -90,6 +108,38 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
   let uidCounter = 0
   const uid = (): string => `vi:${++uidCounter}`
 
+  /** Outcome of a view's `beforeClose` gate: synchronously allowed or
+   *  cancelled, or pending while an async hook runs (the caller decides what
+   *  happens on resolution). */
+  type BeforeCloseResult =
+    | { kind: 'allowed' }
+    | { kind: 'cancelled' }
+    | { kind: 'pending'; then(onAllow: () => void): void }
+
+  /**
+   * Evaluate the instance's view-defined `beforeClose` gate. No hook → the
+   * gate is trivially allowed; a synchronous `false` cancels; a synchronous
+   * `true`/`undefined` allows; a promise defers the decision to its
+   * resolution (any non-`false` value allows). Shared by `closeViewInstance`
+   * and `openView` so replacing an instance's content (switching files) is
+   * gated exactly like closing it — a dirty editor must confirm before its
+   * content is discarded.
+   */
+  const evaluateBeforeClose = (entry: CloseRequest): BeforeCloseResult => {
+    const beforeClose = editorViews.get(entry.viewId)?.beforeClose
+    if (beforeClose === undefined) return { kind: 'allowed' }
+    const verdict = beforeClose(entry)
+    if (typeof verdict === 'object' && verdict !== null && typeof (verdict as Promise<boolean>).then === 'function') {
+      return {
+        kind: 'pending',
+        then(onAllow) {
+          void (verdict as Promise<boolean>).then((allow) => { if (allow !== false) onAllow() })
+        },
+      }
+    }
+    return verdict === false ? { kind: 'cancelled' } : { kind: 'allowed' }
+  }
+
   const openView = (viewId: string, seed?: EditorOpenSeed, options?: { floating?: boolean }): string => {
     const current = store.getLayout()
     if (options?.floating === true) {
@@ -98,7 +148,18 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
       if (existingEntry !== undefined) {
         const [instanceId, win] = existingEntry
         if (seed !== undefined) {
-          store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, seed } } })
+          // Reusing the window replaces the old content: switching files is
+          // like closing the old one, so a dirty instance must confirm first
+          // (the view's beforeClose gate). A cancelled gate keeps the old
+          // seed — no silent discard — and the open resolves to the existing
+          // window either way.
+          const gate = evaluateBeforeClose(win)
+          if (gate.kind === 'cancelled') return instanceId
+          if (gate.kind === 'pending') {
+            gate.then(() => replaceFloatingSeed(instanceId, seed))
+            return instanceId
+          }
+          replaceFloatingSeed(instanceId, seed)
         }
         return instanceId
       }
@@ -115,10 +176,16 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     const existing = current.editorTabs.find((tab) => tab.viewId === viewId)
     if (existing !== undefined) {
       if (seed !== undefined) {
-        store.update({
-          activeEditorTab: existing.instanceId,
-          editorTabs: current.editorTabs.map((tab) => tab.instanceId === existing.instanceId ? { ...tab, seed } : tab),
-        })
+        // Same gate as the floating reuse: replacing the tab's seed discards
+        // the old content, so a dirty instance must confirm first. A
+        // cancelled gate aborts the open without touching the tab.
+        const gate = evaluateBeforeClose(existing)
+        if (gate.kind === 'cancelled') return existing.instanceId
+        if (gate.kind === 'pending') {
+          gate.then(() => replaceTabSeed(existing.instanceId, seed))
+          return existing.instanceId
+        }
+        replaceTabSeed(existing.instanceId, seed)
       } else {
         store.update({ activeEditorTab: existing.instanceId })
       }
@@ -132,7 +199,47 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     return instanceId
   }
 
+  /** Replace a floating window's seed. Re-reads the layout so a deferred
+   *  (async gate) application is safe; unknown ids are a no-op. */
+  const replaceFloatingSeed = (instanceId: string, seed: EditorOpenSeed): void => {
+    const current = store.getLayout()
+    const win = current.floatingWindows[instanceId]
+    if (win === undefined) return
+    store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, seed } } })
+  }
+
+  /** Replace an editor tab's seed and activate it. Re-reads the layout so a
+   *  deferred (async gate) application is safe; unknown ids are a no-op. */
+  const replaceTabSeed = (instanceId: string, seed: EditorOpenSeed): void => {
+    const current = store.getLayout()
+    const tabs = current.editorTabs.map((tab) => tab.instanceId === instanceId ? { ...tab, seed } : tab)
+    if (tabs.every((tab, index) => tab === current.editorTabs[index])) return
+    store.update({ editorTabs: tabs, activeEditorTab: instanceId })
+  }
+
+  /**
+   * Close one view instance (tab or floating window). Before touching the
+   * layout the instance's view definition is consulted: a registered
+   * `beforeClose` hook receives `{ viewId, instanceId, seed }` and may
+   * cancel the close by returning `false` (or a promise resolving to
+   * `false`). The call is fire-and-forget — with an async hook the layout
+   * stays open until the verdict resolves, then the close is performed on
+   * approval. Unknown instance ids are a no-op.
+   */
   const closeViewInstance = (instanceId: string): void => {
+    const current = store.getLayout()
+    // Resolve the instance (tab or floating window) and its view definition.
+    const tab = current.editorTabs.find((entry) => entry.instanceId === instanceId)
+    const win = current.floatingWindows[instanceId]
+    const entry = tab ?? win
+    if (entry === undefined) return
+    const gate = evaluateBeforeClose(entry)
+    if (gate.kind === 'cancelled') return
+    if (gate.kind === 'pending') { gate.then(() => performClose(instanceId)); return }
+    performClose(instanceId)
+  }
+
+  const performClose = (instanceId: string): void => {
     const current = store.getLayout()
     const editorTabs = current.editorTabs.filter((tab) => tab.instanceId !== instanceId)
     let activeEditorTab = current.activeEditorTab
@@ -142,6 +249,32 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     const floatingWindows = { ...current.floatingWindows }
     delete floatingWindows[instanceId]
     store.update({ editorTabs, activeEditorTab, floatingWindows })
+  }
+
+  /**
+   * Patch one open instance's seed in place (editor tab or floating window;
+   * unknown ids are a no-op). `patch.meta` is shallow-merged into the
+   * instance's current meta when both are plain objects; other patch fields
+   * replace their seed counterparts wholesale. Persisted with the layout, so
+   * instance-level state (e.g. an editor's dirty flag) survives reloads.
+   */
+  const updateViewSeed = (instanceId: string, patch: Partial<EditorOpenSeed>): void => {
+    const current = store.getLayout()
+    const tab = current.editorTabs.find((entry) => entry.instanceId === instanceId)
+    if (tab !== undefined) {
+      store.update({
+        editorTabs: current.editorTabs.map((entry) => (
+          entry.instanceId === instanceId ? { ...entry, seed: mergeSeed(entry.seed, patch) } : entry
+        )),
+      })
+      return
+    }
+    const win = current.floatingWindows[instanceId]
+    if (win !== undefined) {
+      store.update({
+        floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, seed: mergeSeed(win.seed, patch) } },
+      })
+    }
   }
 
   // Open-path routing: the file-domain host (dock-files) registers a handler
@@ -186,6 +319,7 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     onDidChangeLayout: (listener: () => void) => store.subscribe(listener),
     openView,
     closeViewInstance,
+    updateViewSeed,
     moveFloatingWindow,
     resizeFloatingWindow,
     openPath,

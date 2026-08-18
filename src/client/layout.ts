@@ -12,10 +12,7 @@ export const DEFAULT_LAYOUT: WorkbenchLayout = {
   sideBarOpen: true,
   editorTabs: [],
   activeEditorTab: null,
-  panelOpen: false,
-  panelViewId: null,
   dock: 'right',
-  deskMode: 'panel',
   autoHide: 'off',
   activityOrder: [],
   absorbNative: false,
@@ -74,10 +71,7 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
           return { editorTabs: tabs, activeEditorTab: active }
         })()
         : {}),
-      ...(typeof parsed.panelOpen === 'boolean' ? { panelOpen: parsed.panelOpen } : {}),
-      ...(typeof parsed.panelViewId === 'string' || parsed.panelViewId === null ? { panelViewId: parsed.panelViewId } : {}),
       ...(typeof parsed.dock === 'string' && DOCKS.includes(parsed.dock as DockPosition) ? { dock: parsed.dock as DockPosition } : {}),
-      ...(parsed.deskMode === 'dock' ? { deskMode: 'dock' as const } : {}),
       ...(parsed.autoHide === 'edge' ? { autoHide: 'edge' as const } : {}),
       ...(Array.isArray(parsed.activityOrder) ? { activityOrder: parsed.activityOrder.filter((v): v is string => typeof v === 'string') } : {}),
       ...(parsed.absorbNative === true ? { absorbNative: true as const } : {}),

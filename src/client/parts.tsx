@@ -106,10 +106,7 @@ interface RootProps {
 /** Module-level registry version: bumped on every registry change. */
 let registryVersion = 0
 
-/** Docked size in px per edge (expanded workbench). */
-const DOCK_SIZE: Record<DockPosition, number> = { left: 720, right: 720, top: 480, bottom: 480 }
-/** Docked size in px per edge (collapsed to the activity strip). */
-const STRIP_SIZE: Record<DockPosition, number> = { left: 48, right: 48, top: 44, bottom: 44 }
+/** Docked edge labels for the position menu. */
 const DOCK_LABEL: Record<DockPosition, string> = { left: '左侧', right: '右侧', top: '顶部', bottom: '底部' }
 
 /** The whole workbench shell. */
@@ -141,42 +138,18 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
 
   const sessionId = useSessionId(ctx)
   const collapsed = layout.activity === null
-  const dockMode = layout.deskMode === 'dock'
+  // The workbench always runs in dock mode (macOS-like floating bar); the
+  // embedded panel presentation was removed.
   const absorbNative = layout.absorbNative === true
 
   const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
   const activePane = activeActivity === undefined || !layout.sideBarOpen
     ? undefined
     : panels.find((panel) => panel.id === activeActivity.paneId && panel.region === 'sideBar')
-  const panelView = layout.panelViewId === null ? undefined : service.getPanel(layout.panelViewId)
 
-  // Layout push + dock edge: the shell sets --dock-size (the DSH app shell
-  // yields it via #root margin) and mirrors the edge onto <body> so the
-  // injected styles can target the right margin property. Dock mode never
-  // pushes — the floating bar overlays the page like the macOS Dock. An
-  // auto-hidden shell also yields nothing.
-  useEffect(() => {
-    // Width: docked size when the editor area is present; collapsed strip
-    // when nothing is open; strip + sidebar when only the file browser is
-    // shown (the editor column is hidden, so the shell must not leave a
-    // dead 720px column).
-    const mainShown = absorbNative || layout.editorTabs.length > 0 || layout.panelOpen
-    const sidebarShown = activePane !== undefined && !collapsed
-    let size: number
-    if (dockMode || autoHidden || absorbNative) {
-      size = 0
-    } else if (mainShown) {
-      size = collapsed ? STRIP_SIZE[layout.dock] : DOCK_SIZE[layout.dock]
-    } else {
-      size = STRIP_SIZE[layout.dock] + (sidebarShown ? 240 : 0)
-    }
-    document.documentElement.style.setProperty('--dock-size', `${size}px`)
-    document.body.setAttribute('data-dock', layout.dock)
-    return () => {
-      document.documentElement.style.removeProperty('--dock-size')
-      document.body.removeAttribute('data-dock')
-    }
-  }, [collapsed, layout.dock, dockMode, autoHidden, absorbNative, layout.editorTabs.length, layout.panelOpen, activePane])
+  // Dock mode never pushes the DSH app shell: the floating bar overlays the
+  // page like the macOS Dock, so --dock-size stays unset (#root margins
+  // remain 0). The panel presentation that used the layout push was removed.
 
   const openDockMenu = (x: number, y: number): void => {
     const items: ContextMenuItem[] = [
@@ -185,7 +158,6 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         checked: layout.dock === dock,
         onClick: () => store.update({ dock }),
       })),
-      { label: 'Dock 模式（macOS 风格）', kind: 'checkbox' as const, checked: dockMode, onClick: () => store.update({ deskMode: dockMode ? 'panel' : 'dock' }) },
       { label: '自动隐藏（鼠标远离收起）', kind: 'checkbox' as const, checked: autoHide, onClick: () => store.update({ autoHide: autoHide ? 'off' : 'edge' }) },
       { label: '吸收 DSH 原生界面', kind: 'checkbox' as const, checked: absorbNative, onClick: () => store.update({ absorbNative: !absorbNative }) },
     ]
@@ -239,14 +211,14 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         className: absorbNative ? `${rootClass} wb-absorb` : rootClass,
         'data-dock-shell': '',
         'data-dock': layout.dock,
-        'data-mode': dockMode ? 'dock' : 'panel',
+        'data-mode': 'dock',
         onMouseEnter: reveal,
         onMouseLeave: scheduleHide,
       },
     createElement(ActivityBar, {
       items: activityItems,
       activeId: layout.activity,
-      dockMode,
+      dockMode: true,
       onActivate: (id) => {
         // Clicking the active item again collapses the side bar (VSCode toggle).
         store.update(layout.activity === id ? { activity: null } : { activity: id, sideBarOpen: true })
@@ -269,9 +241,9 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       absorbNative
         // Absorb mode: the editor area hosts the DSH app shell (#root).
         ? createElement('div', { className: 'dsh-wb-main dsh-wb-absorb-main', ref: rootMountRef })
-        // No editor tabs and no panel: the whole editor area is hidden so the
-        // shell is just the activity bar + sidebar (no redundant empty column).
-        : (layout.editorTabs.length > 0 || layout.panelOpen
+        // No editor tabs: the whole editor area is hidden so the shell is
+        // just the activity bar + sidebar (no redundant empty column).
+        : (layout.editorTabs.length > 0
           ? createElement('div', { className: 'dsh-wb-main' },
             createElement(EditorArea, {
               ctx,
@@ -282,11 +254,6 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
               views: editorViews,
               sessionId,
             }),
-            layout.panelOpen && panelView !== undefined
-              ? createElement('div', { className: 'dsh-wb-panel' },
-                renderView(ctx, panelView, panelView.id, sessionId, layout.panelOpen),
-              )
-              : null,
             createElement(StatusBar, { items: statusItems, ctx }),
           )
           : null),

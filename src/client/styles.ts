@@ -265,12 +265,6 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
   color: var(--dsw-alias-label-secondary, #656d76);
   text-align: center;
 }
-.dsh-wb-panel {
-  height: 170px;
-  flex: none;
-  border-top: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
-  overflow: auto;
-}
 .dsh-wb-statusbar {
   height: 24px;
   flex: none;
@@ -429,8 +423,8 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 }
 
 /* ── Auto-hide (edge): a 4px hotspot strip on the docked edge revives the
-   workbench; the hidden state slides the shell off-screen (panel mode) or
-   hides the dock bar and floating panel (dock mode). ── */
+   workbench; the hidden state fades out the dock bar and floating sidebar
+   (dock mode; the panel presentation was removed). ── */
 .dsh-wb-autohide-hotspot {
   position: fixed;
   z-index: 48;
@@ -442,10 +436,6 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 .dsh-wb-autohide-hotspot[data-dock="bottom"] { bottom: 0; left: 0; right: 0; height: 4px; }
 
 .dsh-wb-root.wb-autohidden { opacity: 0; }
-.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="right"] { transform: translateX(calc(100% + 1px)); }
-.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="left"] { transform: translateX(calc(-100% - 1px)); }
-.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="top"] { transform: translateY(calc(-100% - 1px)); }
-.dsh-wb-root.wb-autohidden[data-mode="panel"][data-dock="bottom"] { transform: translateY(calc(100% + 1px)); }
 /* Dock mode: the bar fades out (visibility flips after the fade completes
    so the opacity transition stays visible). */
 .dsh-wb-root[data-mode="dock"] .dsh-wb-activity,
