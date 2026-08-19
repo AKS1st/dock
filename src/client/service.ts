@@ -42,6 +42,46 @@ function mergeSeed(seed: EditorOpenSeed | undefined, patch: Partial<EditorOpenSe
   return { ...base, ...patch, meta }
 }
 
+// ── Floating-window geometry memory ───────────────────────────────────────
+// The last position/size of a floating window is remembered per view id in
+// the browser (localStorage), so reopening a view restores where the user
+// left it. The layout's own floatingWindows persistence covers the *open*
+// lifetime; this key survives closing, so the *next* open lands on the
+// remembered geometry instead of the default.
+
+/** localStorage key for one view's remembered floating geometry. */
+const FLOATING_GEO_KEY = (viewId: string): string => `dock:floating-geometry:${viewId}`
+
+/** Read the remembered geometry for a view, or undefined when none is saved. */
+function rememberFloatingGeometry(viewId: string): { x: number; y: number; width: number; height: number } | undefined {
+  if (typeof window === 'undefined' || window.localStorage === undefined) return undefined
+  try {
+    const raw = window.localStorage.getItem(FLOATING_GEO_KEY(viewId))
+    if (raw === null) return undefined
+    const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown; width?: unknown; height?: unknown }
+    if (
+      typeof parsed.x === 'number' && typeof parsed.y === 'number'
+      && typeof parsed.width === 'number' && typeof parsed.height === 'number'
+      && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)
+      && parsed.width >= 240 && parsed.height >= 160
+    ) {
+      return { x: parsed.x, y: parsed.y, width: parsed.width, height: parsed.height }
+    }
+  } catch { /* corrupt entry: ignore */ }
+  return undefined
+}
+
+/** Remember a view's floating geometry in the browser. */
+function saveFloatingGeometry(
+  viewId: string,
+  geometry: { x: number; y: number; width: number; height: number },
+): void {
+  if (typeof window === 'undefined' || window.localStorage === undefined) return
+  try {
+    window.localStorage.setItem(FLOATING_GEO_KEY(viewId), JSON.stringify(geometry))
+  } catch { /* storage unavailable/full: degrade silently */ }
+}
+
 export function createWorkbenchService(store: LayoutStore): WorkbenchService {
   const activityItems = new Map<string, ActivityBarItemDefinition>()
   const panels = new Map<string, ViewDefinition & { region: 'sideBar' }>()
@@ -164,10 +204,19 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
         return instanceId
       }
       const instanceId = uid()
+      const remembered = rememberFloatingGeometry(viewId)
       store.update({
         floatingWindows: {
           ...current.floatingWindows,
-          [instanceId]: { instanceId, viewId, seed, x: 120, y: 80, width: 520, height: 360 },
+          [instanceId]: {
+            instanceId,
+            viewId,
+            seed,
+            x: remembered?.x ?? 120,
+            y: remembered?.y ?? 80,
+            width: remembered?.width ?? 520,
+            height: remembered?.height ?? 360,
+          },
         },
       })
       return instanceId
@@ -299,12 +348,14 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     const win = current.floatingWindows[instanceId]
     if (win === undefined) return
     store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, x, y } } })
+    saveFloatingGeometry(win.viewId, { x, y, width: win.width, height: win.height })
   }
   const resizeFloatingWindow = (instanceId: string, width: number, height: number): void => {
     const current = store.getLayout()
     const win = current.floatingWindows[instanceId]
     if (win === undefined) return
     store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, width, height } } })
+    saveFloatingGeometry(win.viewId, { x: win.x, y: win.y, width, height })
   }
 
   return {
