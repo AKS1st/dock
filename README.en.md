@@ -15,6 +15,16 @@ Base plugin for the DSH Web workbench: a VSCode-style layout shell (activity bar
 - **Layout persistence**: panel / floating-window layout is kept in localStorage and restored on reload.
 - **Open registry**: `registerActivityBarItem` / `registerPanel` / `registerEditorView` / `registerStatusBarItem` / `registerCommand` — each returns a disposer, so wrapping it in `ctx.effect` cleans up automatically when the plugin is disabled.
 
+## Recommended companion plugins
+
+The dock base only provides the workbench shell — pair it with the feature plugins below to browse and open files and inspect Git history:
+
+- [AKS1st/dock-files](https://github.com/AKS1st/dock-files) — file explorer: browse the session workspace, file management (new/rename/copy-paste/delete/drag-and-drop)
+- [AKS1st/dock-editor](https://github.com/AKS1st/dock-editor) — text viewer/editor: undo/redo, Ctrl+S save, unsaved-change confirmation
+- [AKS1st/dock-images](https://github.com/AKS1st/dock-images) — image viewer: PNG/JPEG/GIF/WebP/BMP/SVG/ICO/AVIF
+- [AKS1st/dock-markdown](https://github.com/AKS1st/dock-markdown) — Markdown viewer: md/markdown/mdx rendering, document outline, one-click switch to editing
+- [AKS1st/dock-git](https://github.com/AKS1st/dock-git) — Git history visualization: commit graph, branches/tags, stage/commit/push
+
 ## Install
 
 Requires a DSH Web environment (`dsh plugin add`). Install together with the rest of the dock family:

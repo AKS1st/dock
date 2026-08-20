@@ -15,6 +15,16 @@ DSH Web 工作台基础插件：提供 VSCode 风格布局外壳（活动栏 / �
 - **布局持久化**：面板/悬浮窗口布局保存在 localStorage，刷新后恢复。
 - **开放注册表**：`registerActivityBarItem` / `registerPanel` / `registerEditorView` / `registerStatusBarItem` / `registerCommand`，全部返回反注册函数，配合 `ctx.effect` 使用可随插件停用自动清理。
 
+## 推荐搭配插件
+
+dock 基座本身只提供工作台外壳，配合以下功能插件使用才能浏览和打开文件、查看 Git 历史：
+
+- [AKS1st/dock-files](https://github.com/AKS1st/dock-files) — 文件浏览器：浏览会话工作目录、文件管理操作（新建/重命名/复制粘贴/删除/拖放）
+- [AKS1st/dock-editor](https://github.com/AKS1st/dock-editor) — 文本查看/编辑器：撤销重做、Ctrl+S 保存、未保存确认
+- [AKS1st/dock-images](https://github.com/AKS1st/dock-images) — 图片查看器：PNG/JPEG/GIF/WebP/BMP/SVG/ICO/AVIF
+- [AKS1st/dock-markdown](https://github.com/AKS1st/dock-markdown) — Markdown 查看器：md/markdown/mdx 渲染、文档大纲、一键切换编辑
+- [AKS1st/dock-git](https://github.com/AKS1st/dock-git) — Git 历史可视化：提交图、分支/标签、暂存提交推送
+
 ## 安装
 
 需要 DSH Web 环境（`dsh plugin add`）。与其他 dock 系列插件一起安装：
