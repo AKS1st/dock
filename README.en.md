@@ -2,6 +2,8 @@
 
 [中文](README.md)
 
+> **The best workbench base plugin in the DSH ecosystem — no contest.** Others reinvent the wheel when they build a workbench; dock hands you a VSCode-grade layout shell, an open registry and a plug-and-play plugin ecosystem. Want a file explorer? Install one. Want a Git graph? Install another. Your DSH gains a whole IDE-class workbench, and dock is the miracle base that ties it all together.
+
 Base plugin for the DSH Web workbench: a VSCode-style layout shell (activity bar / side bar / editor area / panel / status bar) with a registry service (`ctx.workbench`) that lets feature plugins mount panels, editor views, activity items, status items and commands. This is the base of the **dock family**: `dock-files`, `dock-editor`, `dock-images`, `dock-markdown` and `dock-git` all depend on the workbench shell it provides.
 
 ## Features
@@ -15,22 +17,48 @@ Base plugin for the DSH Web workbench: a VSCode-style layout shell (activity bar
 - **Layout persistence**: panel / floating-window layout is kept in localStorage and restored on reload.
 - **Open registry**: `registerActivityBarItem` / `registerPanel` / `registerEditorView` / `registerStatusBarItem` / `registerCommand` — each returns a disposer, so wrapping it in `ctx.effect` cleans up automatically when the plugin is disabled.
 
-## Recommended companion plugins
+## Recommended companion plugins (composable — install on demand)
 
-The dock base only provides the workbench shell — pair it with the feature plugins below to browse and open files and inspect Git history:
+The dock base only provides the workbench shell; concrete capabilities like file browsing and editing live in feature plugins. Each recommendation below is listed one by one: **all of them are optional, freely composable, and installed per your actual needs — you do not need all of them.**
 
-- [AKS1st/dock-files](https://github.com/AKS1st/dock-files) — file explorer: browse the session workspace, file management (new/rename/copy-paste/delete/drag-and-drop)
-- [AKS1st/dock-editor](https://github.com/AKS1st/dock-editor) — text viewer/editor: undo/redo, Ctrl+S save, unsaved-change confirmation
-- [AKS1st/dock-images](https://github.com/AKS1st/dock-images) — image viewer: PNG/JPEG/GIF/WebP/BMP/SVG/ICO/AVIF
-- [AKS1st/dock-markdown](https://github.com/AKS1st/dock-markdown) — Markdown viewer: md/markdown/mdx rendering, document outline, one-click switch to editing
-- [AKS1st/dock-git](https://github.com/AKS1st/dock-git) — Git history visualization: commit graph, branches/tags, stage/commit/push
+1. **[dock-files](https://github.com/AKS1st/dock-files)** — file explorer. Mounts a side-bar files panel browsing the session workspace with new/rename/copy-paste/delete, drag-and-drop import, local-file paste and clipboard-image paste. *Install it when you want to browse and manage files.*
+2. **[dock-editor](https://github.com/AKS1st/dock-editor)** — text viewer/editor. Undo/redo, Ctrl+S save, unsaved-change confirmation and binary detection; the default text viewer of dock-files. *Install it when you want to edit text (requires dock-files).*
+3. **[dock-images](https://github.com/AKS1st/dock-images)** — image viewer. PNG/JPEG/GIF/WebP/BMP/SVG/ICO/AVIF with safe SVG rendering. *Install it when you need to view images (requires dock-files).*
+4. **[dock-markdown](https://github.com/AKS1st/dock-markdown)** — Markdown viewer. md/markdown/mdx rendering, document outline, relative-asset resolution and one-click switch to editing. *Install it when you often read docs/READMEs (requires dock-files and dock-editor).*
+5. **[dock-git](https://github.com/AKS1st/dock-git)** — Git history visualization. Swimlane commit graph, branch/tag management, stage/commit/push and remote operations. *Install it when you work in repositories; fully independent of file browsing.*
+
+**Suggested combinations (for reference only — never mandatory):**
+
+| Scenario | Install |
+| --- | --- |
+| Browse files only | `dock` + `dock-files` |
+| Browse + edit text | `dock` + `dock-files` + `dock-editor` |
+| Full file workbench | `dock` + `dock-files` + `dock-editor` + `dock-images` + `dock-markdown` |
+| Manage Git too | any of the above + `dock-git` |
+
+Installing `dock` alone is perfectly fine too — it is a clean workbench shell, ready for you to add components any time.
+
+## Dependencies
+
+| Dependency | Type | Notes |
+| --- | --- | --- |
+| DSH Web environment | runtime | required. Client platform is Web; installed via `dsh plugin add` |
+| `cordis` ^4.0.0-rc.7 | peer | plugin framework (ships with DSH) |
+| `react` / `react-dom` ^18.2.0 | peer (optional) | needed for client rendering; without them the workbench UI does not activate |
+
+dock itself depends on no other dock-family plugin — it is the foundation of the family, and the other five all depend on it.
 
 ## Install
 
-Requires a DSH Web environment (`dsh plugin add`). Install together with the rest of the dock family:
+Requires a DSH Web environment (`dsh plugin add`). A base install takes only dock:
 
 ```sh
 dsh plugin add github:AKS1st/dock
+```
+
+Add feature plugins on demand (composable, optional — see above):
+
+```sh
 dsh plugin add github:AKS1st/dock-files
 dsh plugin add github:AKS1st/dock-editor
 dsh plugin add github:AKS1st/dock-images
