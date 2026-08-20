@@ -1,9 +1,12 @@
 {
   "name": "dock",
   "version": "0.1.0",
-  "description": "DSH web workbench base: a VSCode-style layout shell (activity bar / side bar / editor area / panel / status bar) with a registry service (`ctx.workbench`) that lets feature plugins mount panels, editor views, activity items, status items and commands. Phase 1 skeleton.",
+  "description": "DSH Web workbench base: a VSCode-style layout shell (activity bar, side bar, editor area, panel, status bar) with a registry service (ctx.workbench) that feature plugins use to mount panels, editor views, activity items, status items and commands.",
   "type": "module",
-  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AKS1st/dock.git"
+  },
   "main": "./lib/index.js",
   "types": "./lib/types/index.d.ts",
   "exports": {
@@ -30,27 +33,43 @@
     "lib",
     "cordis.patch.yml"
   ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "plugin",
+    "dsh-plugin",
+    "web-ui",
+    "workbench",
+    "dock",
+    "layout"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && tsdown -c tsdown.config.mjs",
     "check": "tsc -p tsconfig.json --noEmit --pretty false"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "cordis": "^4.0.0-rc.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "tsdown": "^0.22.14",
-    "typescript": "^6.0.3"
-  },
-  "peerDependencies": {
-    "cordis": "^4.0.0-rc.7",
-    "react": "^18.2.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    }
-  },
-  "engines": {
-    "node": ">=20"
+    "typescript": "^6.0.3",
+    "cordis": "^4.0.0-rc.7"
   }
 }
