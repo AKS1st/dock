@@ -17,12 +17,14 @@ import type {
   CloseRequest,
   CommandDefinition,
   EditorOpenSeed,
+  FloatingWindow,
   OpenPathOptions,
   StatusBarItemDefinition,
   ViewDefinition,
   WorkbenchLayout,
   WorkbenchService,
 } from './contract.ts'
+import { FLOATING_HEAD_HEIGHT } from './contract.ts'
 import type { LayoutStore } from './layout.ts'
 
 /**
@@ -80,6 +82,22 @@ function saveFloatingGeometry(
   try {
     window.localStorage.setItem(FLOATING_GEO_KEY(viewId), JSON.stringify(geometry))
   } catch { /* storage unavailable/full: degrade silently */ }
+}
+
+/**
+ * Clamp a floating-window rect so its title bar (the top
+ * `FLOATING_HEAD_HEIGHT` strip, spanning the window width) stays fully
+ * inside the viewport. The body may extend past the bottom edge, but the
+ * head — with the move grip and the close button — is always reachable, so
+ * a window can never be dragged into an uncontrollable position. No-op
+ * outside a browser (no viewport to measure).
+ */
+function clampRect(x: number, y: number, width: number, height: number): { x: number; y: number } {
+  if (typeof window === 'undefined') return { x, y }
+  return {
+    x: Math.min(Math.max(0, x), Math.max(0, window.innerWidth - width)),
+    y: Math.min(Math.max(0, y), Math.max(0, window.innerHeight - FLOATING_HEAD_HEIGHT)),
+  }
 }
 
 export function createWorkbenchService(store: LayoutStore): WorkbenchService {
@@ -205,6 +223,11 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
       }
       const instanceId = uid()
       const remembered = rememberFloatingGeometry(viewId)
+      const width = remembered?.width ?? 520
+      const height = remembered?.height ?? 360
+      // Clamp the initial placement too: remembered geometry from a larger
+      // screen must not open a window with its title bar out of reach.
+      const { x, y } = clampRect(remembered?.x ?? 120, remembered?.y ?? 80, width, height)
       store.update({
         floatingWindows: {
           ...current.floatingWindows,
@@ -212,10 +235,10 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
             instanceId,
             viewId,
             seed,
-            x: remembered?.x ?? 120,
-            y: remembered?.y ?? 80,
-            width: remembered?.width ?? 520,
-            height: remembered?.height ?? 360,
+            x,
+            y,
+            width,
+            height,
           },
         },
       })
@@ -347,15 +370,41 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     const current = store.getLayout()
     const win = current.floatingWindows[instanceId]
     if (win === undefined) return
-    store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, x, y } } })
-    saveFloatingGeometry(win.viewId, { x, y, width: win.width, height: win.height })
+    const clamped = clampRect(x, y, win.width, win.height)
+    store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, x: clamped.x, y: clamped.y } } })
+    saveFloatingGeometry(win.viewId, { x: clamped.x, y: clamped.y, width: win.width, height: win.height })
   }
-  const resizeFloatingWindow = (instanceId: string, width: number, height: number): void => {
+  const resizeFloatingWindow = (instanceId: string, x: number, y: number, width: number, height: number): void => {
     const current = store.getLayout()
     const win = current.floatingWindows[instanceId]
     if (win === undefined) return
-    store.update({ floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, width, height } } })
-    saveFloatingGeometry(win.viewId, { x: win.x, y: win.y, width, height })
+    const clamped = clampRect(x, y, width, height)
+    store.update({
+      floatingWindows: { ...current.floatingWindows, [instanceId]: { ...win, x: clamped.x, y: clamped.y, width, height } },
+    })
+    saveFloatingGeometry(win.viewId, { x: clamped.x, y: clamped.y, width, height })
+  }
+  /** Pull every open floating window's title bar back into the viewport.
+   *  Only touches windows that are actually out of bounds (viewport shrink,
+   *  or geometry remembered on a larger screen); drags clamp live already. */
+  const clampFloatingWindowsIntoView = (): void => {
+    const current = store.getLayout()
+    let changed = false
+    const floatingWindows: Record<string, FloatingWindow> = {}
+    for (const [id, win] of Object.entries(current.floatingWindows)) {
+      const clamped = clampRect(win.x, win.y, win.width, win.height)
+      if (clamped.x !== win.x || clamped.y !== win.y) {
+        floatingWindows[id] = { ...win, x: clamped.x, y: clamped.y }
+        changed = true
+      } else {
+        floatingWindows[id] = win
+      }
+    }
+    if (!changed) return
+    store.update({ floatingWindows })
+    for (const win of Object.values(floatingWindows)) {
+      saveFloatingGeometry(win.viewId, { x: win.x, y: win.y, width: win.width, height: win.height })
+    }
   }
 
   return {
@@ -373,6 +422,7 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     updateViewSeed,
     moveFloatingWindow,
     resizeFloatingWindow,
+    clampFloatingWindowsIntoView,
     openPath,
     registerOpenPathHandler,
     getPanel: (id) => panels.get(id),

@@ -127,6 +127,14 @@ export interface CommandDefinition {
 /** The screen edge the workbench docks to. */
 export type DockPosition = 'left' | 'right' | 'top' | 'bottom'
 
+/** Minimum floating-window width in px (enforced by drag math and CSS). */
+export const FLOATING_MIN_WIDTH = 240
+/** Minimum floating-window height in px (enforced by drag math and CSS). */
+export const FLOATING_MIN_HEIGHT = 160
+/** Floating-window title bar height in px (`.dsh-wb-floating-head`); the
+ *  viewport clamp keeps at least this strip reachable on screen. */
+export const FLOATING_HEAD_HEIGHT = 34
+
 /**
  * The workbench layout snapshot: which activity is active, whether the side
  * bar is open, which editor views are open (tab strip), the dock
@@ -247,10 +255,17 @@ export interface WorkbenchService {
    * other patch fields replace the seed's field wholesale.
    */
   updateViewSeed(instanceId: string, patch: Partial<EditorOpenSeed>): void
-  /** Move a floating window (persisted); instanceId-keyed. */
+  /** Move a floating window (persisted); the resulting rect is clamped so
+   *  the title bar stays on-screen. */
   moveFloatingWindow(instanceId: string, x: number, y: number): void
-  /** Resize a floating window (persisted); instanceId-keyed. */
-  resizeFloatingWindow(instanceId: string, width: number, height: number): void
+  /** Resize a floating window from any edge/corner (persisted): the full
+   *  rect is passed because dragging a west/north edge also moves the
+   *  window. The resulting rect is clamped so the title bar stays on-screen. */
+  resizeFloatingWindow(instanceId: string, x: number, y: number, width: number, height: number): void
+  /** Pull every open floating window back so its title bar is on-screen
+   *  (viewports shrink, or geometry remembered on a larger screen). Drags
+   *  already clamp live; this covers resize/mount recovery. */
+  clampFloatingWindowsIntoView(): void
 
   /**
    * Unified file-path entry: system interception (chat links, produced

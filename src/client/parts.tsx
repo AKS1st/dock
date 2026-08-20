@@ -24,6 +24,7 @@ import type {
   WorkbenchLayout,
   WorkbenchService,
 } from './contract.ts'
+import { FLOATING_MIN_HEIGHT, FLOATING_MIN_WIDTH } from './contract.ts'
 import type { LayoutStore } from './layout.ts'
 import { reorderActivity } from './layout.ts'
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from './context-menu'
@@ -281,10 +282,30 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   )
 }
 
+/** A floating-window resize edge/corner (n/s/e/w + 4 corners). */
+type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+/**
+ * The eight resize grips: the shared base class
+ * (`dsh-wb-floating-resize`) plus an edge modifier class that positions the
+ * grip and sets the resize cursor. 'w'/'n' drags also move the window so
+ * the opposite edge stays anchored (handled in the drag math).
+ */
+const RESIZE_HANDLES: { edge: ResizeEdge; className: string }[] = [
+  { edge: 'n', className: 'dsh-wb-resize-n' },
+  { edge: 's', className: 'dsh-wb-resize-s' },
+  { edge: 'e', className: 'dsh-wb-resize-e' },
+  { edge: 'w', className: 'dsh-wb-resize-w' },
+  { edge: 'ne', className: 'dsh-wb-resize-ne' },
+  { edge: 'nw', className: 'dsh-wb-resize-nw' },
+  { edge: 'se', className: 'dsh-wb-resize-se' },
+  { edge: 'sw', className: 'dsh-wb-resize-sw' },
+]
+
 /** Drag state of a floating window (move or resize, origin snapshot). */
 interface FloatingDrag {
   id: string
-  mode: 'move' | 'resize'
+  mode: 'move' | ResizeEdge
   startX: number
   startY: number
   x: number
@@ -314,10 +335,29 @@ function FloatingWindows(props: {
       const dx = event.clientX - drag.startX
       const dy = event.clientY - drag.startY
       if (drag.mode === 'move') {
+        // The service clamps the result, so the title bar can never be
+        // dragged out of reach.
         service.moveFloatingWindow(drag.id, drag.x + dx, drag.y + dy)
-      } else {
-        service.resizeFloatingWindow(drag.id, Math.max(240, drag.width + dx), Math.max(160, drag.height + dy))
+        return
       }
+      // Edge/corner resize. 'e'/'s' grow from the top-left anchor;
+      // 'w'/'n' shrink from the opposite edge and shift the window so the
+      // far edge stays in place. Min sizes mirror the CSS min-width/height.
+      let x = drag.x
+      let y = drag.y
+      let width = drag.width
+      let height = drag.height
+      if (drag.mode.includes('e')) width = Math.max(FLOATING_MIN_WIDTH, drag.width + dx)
+      if (drag.mode.includes('s')) height = Math.max(FLOATING_MIN_HEIGHT, drag.height + dy)
+      if (drag.mode.includes('w')) {
+        width = Math.max(FLOATING_MIN_WIDTH, drag.width - dx)
+        x = drag.x + drag.width - width
+      }
+      if (drag.mode.includes('n')) {
+        height = Math.max(FLOATING_MIN_HEIGHT, drag.height - dy)
+        y = drag.y + drag.height - height
+      }
+      service.resizeFloatingWindow(drag.id, x, y, width, height)
     }
     const onUp = (): void => { dragRef.current = null; setDragging(false) }
     document.addEventListener('mousemove', onMove)
@@ -328,7 +368,17 @@ function FloatingWindows(props: {
     }
   }, [dragging, service])
 
-  const startDrag = (win: FloatingWindow, mode: 'move' | 'resize', event: MouseEvent): void => {
+  // Keep every floating window's title bar on-screen: a viewport shrink (or
+  // geometry restored from a larger screen) is clamped back automatically so
+  // no window can be stranded out of reach. Drags clamp live in the service.
+  useEffect(() => {
+    const onViewportResize = (): void => service.clampFloatingWindowsIntoView()
+    window.addEventListener('resize', onViewportResize)
+    onViewportResize()
+    return () => window.removeEventListener('resize', onViewportResize)
+  }, [service])
+
+  const startDrag = (win: FloatingWindow, mode: 'move' | ResizeEdge, event: MouseEvent): void => {
     event.preventDefault()
     dragRef.current = { id: windowKey(win), mode, startX: event.clientX, startY: event.clientY, ...win }
     setDragging(true)
@@ -360,10 +410,13 @@ function FloatingWindows(props: {
       createElement('div', { className: 'dsh-wb-floating-body' },
         renderView(ctx, view, view.id, sessionId, true, win.seed),
       ),
-      createElement('div', {
-        className: 'dsh-wb-floating-resize',
-        onMouseDown: (event: MouseEvent) => startDrag(win, 'resize', event),
-      }),
+      // Eight resize grips: each edge and corner. 'w'/'n' drags move the
+      // window too (the far edge stays anchored), handled in the drag math.
+      RESIZE_HANDLES.map((handle) => createElement('div', {
+        key: handle.edge,
+        className: `dsh-wb-floating-resize ${handle.className}`,
+        onMouseDown: (event: MouseEvent) => startDrag(win, handle.edge, event),
+      })),
       )
     }),
   )

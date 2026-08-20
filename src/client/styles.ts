@@ -20,6 +20,7 @@ const CSS = `
   pointer-events: auto;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   min-width: 240px;
   min-height: 160px;
   background: var(--dsw-alias-bg-layer-2, #ffffff);
@@ -73,14 +74,20 @@ const CSS = `
   min-height: 0;
   overflow: auto;
 }
-.dsh-wb-floating-resize {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 14px;
-  height: 14px;
-  cursor: nwse-resize;
-}
+/* Resize grips: eight edge/corner handles (n/s/e/w + corners) so a window
+   can be resized from any side, each with the matching resize cursor. The
+   base class makes every grip absolute; the edge modifier positions it and
+   picks the cursor. Grip hit areas are thin (6px) so they do not cover the
+   window content; corners are 12px for an easier grab. */
+.dsh-wb-floating-resize { position: absolute; z-index: 2; }
+.dsh-wb-resize-n { top: 0; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.dsh-wb-resize-s { bottom: 0; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.dsh-wb-resize-e { right: 0; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.dsh-wb-resize-w { left: 0; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.dsh-wb-resize-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+.dsh-wb-resize-nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.dsh-wb-resize-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+.dsh-wb-resize-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
 
 /* Layout push: #root yields the docked size on the docked edge. Horizontal
    docks shrink #root's width via margins; vertical docks compress its fixed
