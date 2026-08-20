@@ -2,9 +2,8 @@
  * Client half of dock: publishes the `ctx.workbench` registry
  * service, then mounts the workbench shell as a fixed right-docked root on
  * document.body (the base owns this single portal; feature plugins never
- * touch the page layout). DSH's native UI stays untouched in Phase 1 —
- * absorbing it into the shell (session list → activity bar, chat →
- * editor area) is Phase 3 work.
+ * touch the page layout). DSH's native UI stays untouched — the workbench
+ * floats alongside it like the macOS Dock.
  */
 import { createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'

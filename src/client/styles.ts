@@ -430,8 +430,9 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 }
 
 /* ── Auto-hide (edge): a 4px hotspot strip on the docked edge revives the
-   workbench; the hidden state fades out the dock bar and floating sidebar
-   (dock mode; the panel presentation was removed). ── */
+   workbench; the hidden state fades out only the dock bar and the floating
+   sidebar. Open floating windows are independent (rendered outside the dock
+   root), so they neither fade nor participate in the reveal interaction. ── */
 .dsh-wb-autohide-hotspot {
   position: fixed;
   z-index: 48;
@@ -442,9 +443,9 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 .dsh-wb-autohide-hotspot[data-dock="top"] { top: 0; left: 0; right: 0; height: 4px; }
 .dsh-wb-autohide-hotspot[data-dock="bottom"] { bottom: 0; left: 0; right: 0; height: 4px; }
 
-.dsh-wb-root.wb-autohidden { opacity: 0; }
 /* Dock mode: the bar fades out (visibility flips after the fade completes
-   so the opacity transition stays visible). */
+   so the opacity transition stays visible). No root-level opacity rule —
+   the fade is scoped to the activity bar and sidebar only. */
 .dsh-wb-root[data-mode="dock"] .dsh-wb-activity,
 .dsh-wb-root[data-mode="dock"] .dsh-wb-sidebar {
   transition: opacity 0.3s var(--ds-ease-out, ease-out),
@@ -454,30 +455,6 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 .dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-sidebar {
   opacity: 0;
   visibility: hidden;
-}
-
-/* ── Absorb mode: the workbench takes over the full viewport and hosts the
-   DSH app shell (#root) in the editor area — the harness UI becomes the
-   base's default view. Fixed layout: activity | sidebar | main. ── */
-.dsh-wb-root.wb-absorb {
-  inset: 0;
-  width: auto !important;
-  height: auto !important;
-  border: 0;
-  flex-direction: row;
-  background: var(--dsw-alias-bg-base, #ffffff);
-}
-.dsh-wb-root.wb-absorb .dsh-wb-activity {
-  border-right: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
-}
-.dsh-wb-root.wb-absorb .dsh-wb-main {
-  background: var(--dsw-alias-bg-base, #ffffff);
-  overflow: hidden;
-}
-/* The moved #root fills the editor area (height:100% relative to main). */
-.dsh-wb-root.wb-absorb .dsh-wb-absorb-main > #root {
-  height: 100%;
-  width: 100%;
 }
 `
 

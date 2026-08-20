@@ -107,8 +107,22 @@ interface RootProps {
 /** Module-level registry version: bumped on every registry change. */
 let registryVersion = 0
 
-/** Docked edge labels for the position menu. */
-const DOCK_LABEL: Record<DockPosition, string> = { left: '左侧', right: '右侧', top: '顶部', bottom: '底部' }
+/** Docked edge labels for the position menu (zh/en pairs). */
+const DOCK_LABEL: Record<DockPosition, { zh: string; en: string }> = {
+  left: { zh: '左侧', en: 'Left' },
+  right: { zh: '右侧', en: 'Right' },
+  top: { zh: '顶部', en: 'Top' },
+  bottom: { zh: '底部', en: 'Bottom' },
+}
+
+/** True when the DSH UI language is English. The locale plugin keeps
+ *  `document.documentElement.lang` in sync with the active locale ('en' for
+ *  English, 'zh-CN' for Chinese), so the menu follows the UI language
+ *  without importing the locale service. */
+function isEnglish(): boolean {
+  return typeof document !== 'undefined'
+    && (document.documentElement.lang || '').toLowerCase().startsWith('en')
+}
 
 /** The whole workbench shell. */
 export function WorkbenchRoot(props: RootProps): ReactNode {
@@ -118,8 +132,8 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     (onChange) => service.subscribe(() => { registryVersion += 1; onChange() }),
     () => registryVersion,
   )
-  const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const autoHide = layout.autoHide === 'edge'
+  const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [autoHidden, setAutoHidden] = useState(false)
   const hideTimer = useRef<number | null>(null)
   useEffect(() => () => { if (hideTimer.current !== null) window.clearTimeout(hideTimer.current) }, [])
@@ -139,9 +153,6 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
 
   const sessionId = useSessionId(ctx)
   const collapsed = layout.activity === null
-  // The workbench always runs in dock mode (macOS-like floating bar); the
-  // embedded panel presentation was removed.
-  const absorbNative = layout.absorbNative === true
 
   const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
   const activePane = activeActivity === undefined || !layout.sideBarOpen
@@ -152,15 +163,22 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   // page like the macOS Dock, so --dock-size stays unset (#root margins
   // remain 0). The panel presentation that used the layout push was removed.
 
+  // Right-click menu: dock position + auto-hide toggle. Labels follow the
+  // DSH UI language (see isEnglish). The absorb-native item was removed.
   const openDockMenu = (x: number, y: number): void => {
+    const en = isEnglish()
     const items: ContextMenuItem[] = [
       ...(['left', 'right', 'top', 'bottom'] as DockPosition[]).map((dock) => ({
-        label: `停靠到${DOCK_LABEL[dock]}`,
+        label: en ? `Dock to ${DOCK_LABEL[dock].en}` : `停靠到${DOCK_LABEL[dock].zh}`,
         checked: layout.dock === dock,
         onClick: () => store.update({ dock }),
       })),
-      { label: '自动隐藏（鼠标远离收起）', kind: 'checkbox' as const, checked: autoHide, onClick: () => store.update({ autoHide: autoHide ? 'off' : 'edge' }) },
-      { label: '吸收 DSH 原生界面', kind: 'checkbox' as const, checked: absorbNative, onClick: () => store.update({ absorbNative: !absorbNative }) },
+      {
+        label: en ? 'Auto-hide (hide when mouse leaves)' : '自动隐藏（鼠标远离收起）',
+        kind: 'checkbox' as const,
+        checked: autoHide,
+        onClick: () => store.update({ autoHide: autoHide ? 'off' : 'edge' }),
+      },
     ]
     setMenu({ x, y, items })
   }
@@ -185,31 +203,13 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     autoHidden ? 'wb-autohidden' : undefined,
   ].filter(Boolean).join(' ')
 
-  // Absorb mode: move the DSH app shell (#root) into the editor area mount;
-  // restore it to <body> on disable/HMR so the native UI survives.
-  const rootMountRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!absorbNative) return
-    const rootEl = document.getElementById('root')
-    const mount = rootMountRef.current
-    if (rootEl !== null && mount !== null && rootEl.parentElement !== mount) {
-      mount.appendChild(rootEl)
-    }
-    return () => {
-      const el = document.getElementById('root')
-      if (el !== null && mount !== null && el.parentElement === mount) {
-        document.body.appendChild(el)
-      }
-    }
-  }, [absorbNative])
-
   return createElement(
     Fragment,
     null,
     createElement(
       'div',
       {
-        className: absorbNative ? `${rootClass} wb-absorb` : rootClass,
+        className: rootClass,
         'data-dock-shell': '',
         'data-dock': layout.dock,
         'data-mode': 'dock',
@@ -239,26 +239,27 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
           renderView(ctx, activePane, activePane.id, sessionId, layout.activity === activeActivity?.id),
         )
         : null,
-      absorbNative
-        // Absorb mode: the editor area hosts the DSH app shell (#root).
-        ? createElement('div', { className: 'dsh-wb-main dsh-wb-absorb-main', ref: rootMountRef })
-        // No editor tabs: the whole editor area is hidden so the shell is
-        // just the activity bar + sidebar (no redundant empty column).
-        : (layout.editorTabs.length > 0
-          ? createElement('div', { className: 'dsh-wb-main' },
-            createElement(EditorArea, {
-              ctx,
-              service,
-              store,
-              tabs: layout.editorTabs,
-              activeTab: layout.activeEditorTab,
-              views: editorViews,
-              sessionId,
-            }),
-            createElement(StatusBar, { items: statusItems, ctx }),
-          )
-          : null),
+      // No editor tabs: the whole editor area is hidden so the shell is
+      // just the activity bar + sidebar (no redundant empty column).
+      layout.editorTabs.length > 0
+        ? createElement('div', { className: 'dsh-wb-main' },
+          createElement(EditorArea, {
+            ctx,
+            service,
+            store,
+            tabs: layout.editorTabs,
+            activeTab: layout.activeEditorTab,
+            views: editorViews,
+            sessionId,
+          }),
+          createElement(StatusBar, { items: statusItems, ctx }),
+        )
+        : null,
     ),
+    ),
+    // Floating windows and the context menu live OUTSIDE the dock root: they
+    // are independent of the auto-hide interaction (hovering them neither
+    // reveals nor keeps the dock visible) and are never faded with it.
     createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
     createElement(FloatingWindows, {
       ctx,
@@ -267,7 +268,6 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       sessionId,
       views: editorViews,
     }),
-    ),
     // Edge hotspot: a 4px strip on the docked edge (outside the shell, which
     // may be slid off-screen) that revives the workbench on hover. Leaving
     // it re-arms the hide timer so a revived workbench auto-hides again.

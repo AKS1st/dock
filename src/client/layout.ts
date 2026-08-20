@@ -15,7 +15,6 @@ export const DEFAULT_LAYOUT: WorkbenchLayout = {
   dock: 'right',
   autoHide: 'off',
   activityOrder: [],
-  absorbNative: false,
   floatingWindows: {},
 }
 
@@ -74,7 +73,6 @@ function loadPersisted(storage: LayoutStorage): WorkbenchLayout | null {
       ...(typeof parsed.dock === 'string' && DOCKS.includes(parsed.dock as DockPosition) ? { dock: parsed.dock as DockPosition } : {}),
       ...(parsed.autoHide === 'edge' ? { autoHide: 'edge' as const } : {}),
       ...(Array.isArray(parsed.activityOrder) ? { activityOrder: parsed.activityOrder.filter((v): v is string => typeof v === 'string') } : {}),
-      ...(parsed.absorbNative === true ? { absorbNative: true as const } : {}),
       ...(parsed.floatingWindows !== undefined && parsed.floatingWindows !== null && typeof parsed.floatingWindows === 'object'
         ? { floatingWindows: migrateFloatingWindows(parsed.floatingWindows) } : {}),
     }
