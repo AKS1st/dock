@@ -19,7 +19,8 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "skipLibCheck": true,
-    "noEmitOnError": true
+    "noEmitOnError": true,
+    "emitDeclarationOnly": true
   },
   "include": [
     "src/**/*.ts",
