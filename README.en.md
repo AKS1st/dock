@@ -66,6 +66,17 @@ dsh plugin add github:AKS1st/dock-markdown
 dsh plugin add github:AKS1st/dock-git
 ```
 
+The same plugins are also available from the npm registry:
+
+```sh
+dsh plugin add dock-base
+dsh plugin add dock-files
+dsh plugin add dock-editor
+dsh plugin add dock-images
+dsh plugin add dock-markdown
+dsh plugin add dock-git
+```
+
 Or install locally with `link:` in your profile dependencies. `dock` provides the `ctx.workbench` service; feature plugins collaborate through it and install order does not matter (Cordis activates by dependency).
 
 ## Development

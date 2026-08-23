@@ -66,6 +66,17 @@ dsh plugin add github:AKS1st/dock-markdown
 dsh plugin add github:AKS1st/dock-git
 ```
 
+同样可从 npm registry 安装：
+
+```sh
+dsh plugin add dock-base
+dsh plugin add dock-files
+dsh plugin add dock-editor
+dsh plugin add dock-images
+dsh plugin add dock-markdown
+dsh plugin add dock-git
+```
+
 或按你的 profile 依赖写法使用 `link:` 本地安装。`dock` 提供 `ctx.workbench` 服务；功能插件通过该服务协作，安装顺序不敏感（Cordis 按依赖激活）。
 
 ## 开发

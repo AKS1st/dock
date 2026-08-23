@@ -1,5 +1,5 @@
 {
-  "name": "dock",
+  "name": "dock-base",
   "version": "0.1.0",
   "description": "DSH Web workbench base: a VSCode-style layout shell (activity bar, side bar, editor area, panel, status bar) with a registry service (ctx.workbench) that feature plugins use to mount panels, editor views, activity items, status items and commands.",
   "type": "module",
