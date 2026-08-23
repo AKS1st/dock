@@ -42,7 +42,7 @@ Installing `dock` alone is perfectly fine too — it is a clean workbench shell,
 
 | Dependency | Type | Notes |
 | --- | --- | --- |
-| DSH Web environment | runtime | required. Client platform is Web; installed via `dsh plugin add` |
+| DSH Web environment | runtime | required. Client platform is Web; installed via `dsh plugin --profile web add` |
 | `cordis` ^4.0.0-rc.7 | peer | plugin framework (ships with DSH) |
 | `react` / `react-dom` ^18.2.0 | peer (optional) | needed for client rendering; without them the workbench UI does not activate |
 
@@ -50,28 +50,28 @@ dock itself depends on no other dock-family plugin — it is the foundation of t
 
 ## Install
 
-Requires a DSH Web environment (`dsh plugin add`).
+Requires a DSH Web environment (`dsh plugin --profile web add`).
 
 Recommended install from the npm registry:
 
 ```sh
-dsh plugin add dock-base
-dsh plugin add dock-files
-dsh plugin add dock-editor
-dsh plugin add dock-images
-dsh plugin add dock-markdown
-dsh plugin add dock-git
+dsh plugin --profile web add dock-base
+dsh plugin --profile web add dock-files
+dsh plugin --profile web add dock-editor
+dsh plugin --profile web add dock-images
+dsh plugin --profile web add dock-markdown
+dsh plugin --profile web add dock-git
 ```
 
 Or install from GitHub (alternative):
 
 ```sh
-dsh plugin add github:AKS1st/dock
-dsh plugin add github:AKS1st/dock-files
-dsh plugin add github:AKS1st/dock-editor
-dsh plugin add github:AKS1st/dock-images
-dsh plugin add github:AKS1st/dock-markdown
-dsh plugin add github:AKS1st/dock-git
+dsh plugin --profile web add github:AKS1st/dock
+dsh plugin --profile web add github:AKS1st/dock-files
+dsh plugin --profile web add github:AKS1st/dock-editor
+dsh plugin --profile web add github:AKS1st/dock-images
+dsh plugin --profile web add github:AKS1st/dock-markdown
+dsh plugin --profile web add github:AKS1st/dock-git
 ```
 
 Or install locally with `link:` in your profile dependencies. `dock` provides the `ctx.workbench` service; feature plugins collaborate through it and install order does not matter (Cordis activates by dependency).

@@ -42,7 +42,7 @@ dock 基座只提供工作台外壳，不附带文件浏览、编辑等具体能
 
 | 依赖 | 类型 | 说明 |
 | --- | --- | --- |
-| DSH Web 环境 | 运行时 | 必需。客户端平台为 Web，通过 `dsh plugin add` 安装 |
+| DSH Web 环境 | 运行时 | 必需。客户端平台为 Web，通过 `dsh plugin --profile web add` 安装 |
 | `cordis` ^4.0.0-rc.7 | peer | 插件框架（DSH 自带） |
 | `react` / `react-dom` ^18.2.0 | peer（可选） | 客户端渲染需要；未提供时工作台 UI 不激活 |
 
@@ -50,28 +50,28 @@ dock 自身不依赖任何其他 dock 系列插件——它是系列的地基，
 
 ## 安装
 
-需要 DSH Web 环境（`dsh plugin add`）。
+需要 DSH Web 环境（`dsh plugin --profile web add`）。
 
 推荐从 npm registry 安装：
 
 ```sh
-dsh plugin add dock-base
-dsh plugin add dock-files
-dsh plugin add dock-editor
-dsh plugin add dock-images
-dsh plugin add dock-markdown
-dsh plugin add dock-git
+dsh plugin --profile web add dock-base
+dsh plugin --profile web add dock-files
+dsh plugin --profile web add dock-editor
+dsh plugin --profile web add dock-images
+dsh plugin --profile web add dock-markdown
+dsh plugin --profile web add dock-git
 ```
 
 或通过 GitHub 安装（备选）：
 
 ```sh
-dsh plugin add github:AKS1st/dock
-dsh plugin add github:AKS1st/dock-files
-dsh plugin add github:AKS1st/dock-editor
-dsh plugin add github:AKS1st/dock-images
-dsh plugin add github:AKS1st/dock-markdown
-dsh plugin add github:AKS1st/dock-git
+dsh plugin --profile web add github:AKS1st/dock
+dsh plugin --profile web add github:AKS1st/dock-files
+dsh plugin --profile web add github:AKS1st/dock-editor
+dsh plugin --profile web add github:AKS1st/dock-images
+dsh plugin --profile web add github:AKS1st/dock-markdown
+dsh plugin --profile web add github:AKS1st/dock-git
 ```
 
 或按你的 profile 依赖写法使用 `link:` 本地安装。`dock` 提供 `ctx.workbench` 服务；功能插件通过该服务协作，安装顺序不敏感（Cordis 按依赖激活）。
