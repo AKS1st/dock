@@ -50,23 +50,9 @@ dock 自身不依赖任何其他 dock 系列插件——它是系列的地基，
 
 ## 安装
 
-需要 DSH Web 环境（`dsh plugin add`）。基础安装只装 dock 一个：
+需要 DSH Web 环境（`dsh plugin add`）。
 
-```sh
-dsh plugin add github:AKS1st/dock
-```
-
-按需搭配功能插件（可组合、非必须，见上文）：
-
-```sh
-dsh plugin add github:AKS1st/dock-files
-dsh plugin add github:AKS1st/dock-editor
-dsh plugin add github:AKS1st/dock-images
-dsh plugin add github:AKS1st/dock-markdown
-dsh plugin add github:AKS1st/dock-git
-```
-
-同样可从 npm registry 安装：
+推荐从 npm registry 安装：
 
 ```sh
 dsh plugin add dock-base
@@ -75,6 +61,17 @@ dsh plugin add dock-editor
 dsh plugin add dock-images
 dsh plugin add dock-markdown
 dsh plugin add dock-git
+```
+
+或通过 GitHub 安装（备选）：
+
+```sh
+dsh plugin add github:AKS1st/dock
+dsh plugin add github:AKS1st/dock-files
+dsh plugin add github:AKS1st/dock-editor
+dsh plugin add github:AKS1st/dock-images
+dsh plugin add github:AKS1st/dock-markdown
+dsh plugin add github:AKS1st/dock-git
 ```
 
 或按你的 profile 依赖写法使用 `link:` 本地安装。`dock` 提供 `ctx.workbench` 服务；功能插件通过该服务协作，安装顺序不敏感（Cordis 按依赖激活）。
