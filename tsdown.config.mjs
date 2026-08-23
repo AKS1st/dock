@@ -10,7 +10,7 @@
  * everything else. Phase 1 has no lazy chunks: the /workbench/bundle code
  * splitting mechanism is planned for Phase 2.
  */
-const id = 'dock'
+const id = 'dock-base'
 
 /** Module specifiers the web shell shares into the frozen module table. */
 const CLIENT_EXTERNALS = [

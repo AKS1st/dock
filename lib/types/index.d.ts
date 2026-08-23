@@ -6,6 +6,6 @@
  * their own host routes. Layout persistence happens on the client
  * (localStorage), so the host half has no routes yet.
  */
-export declare const name = "dock";
+export declare const name = "dock-base";
 /** No host-side services required yet. */
 export declare function apply(): void;
