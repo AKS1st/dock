@@ -4,4 +4,4 @@
 # own rows the same way.
 - insert:
     - id: dock
-      name: 'dock'
+      name: 'dock-base'
