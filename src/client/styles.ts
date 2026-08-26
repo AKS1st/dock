@@ -226,18 +226,28 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 .dsh-wb-sidebar {
   width: 240px;
   flex: none;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   border-right: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
   padding: 6px 0;
 }
 .dsh-wb-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
   padding: 4px 12px;
+  box-sizing: border-box;
+  flex: none;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--dsw-alias-label-secondary, #656d76);
 }
+.dsh-wb-sidebar-title { flex: 1; min-width: 0; }
 .dsh-wb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .dsh-wb-tabs {
   display: flex;

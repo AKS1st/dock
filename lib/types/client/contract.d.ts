@@ -76,6 +76,8 @@ export interface ViewDefinition {
     order?: number;
     /** The component (or lazy factory). */
     component: ViewComponent;
+    /** Optional actions rendered in the fixed side-bar title row. */
+    headerComponent?: ViewComponent;
     /**
      * Close gate: called with the instance's `{ viewId, instanceId, seed }`
      * before the shell removes its tab / floating window. Return `false` (or a

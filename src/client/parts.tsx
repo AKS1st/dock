@@ -235,7 +235,12 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     createElement('div', { className: 'dsh-wb-body' },
       activePane !== undefined && !collapsed
         ? createElement('div', { className: 'dsh-wb-sidebar' },
-          createElement('div', { className: 'dsh-wb-sidebar-header' }, titleOf(activePane)),
+          createElement('div', { className: 'dsh-wb-sidebar-header' },
+            createElement('span', { className: 'dsh-wb-sidebar-title' }, titleOf(activePane)),
+            activePane.headerComponent !== undefined
+              ? renderView(ctx, { ...activePane, component: activePane.headerComponent }, activePane.id, sessionId, layout.activity === activeActivity?.id)
+              : null,
+          ),
           renderView(ctx, activePane, activePane.id, sessionId, layout.activity === activeActivity?.id),
         )
         : null,
