@@ -24,8 +24,11 @@ import type {
   WorkbenchLayout,
   WorkbenchService,
 } from './contract.ts'
-import { FLOATING_HEAD_HEIGHT } from './contract.ts'
+import { FLOATING_HEAD_HEIGHT } from './ui-constants.ts'
 import type { LayoutStore } from './layout.ts'
+import { DOCK_AUTO_HIDE_SETTING, DOCK_BASE_PLUGIN_ID, DOCK_POSITION_SETTING, DOCK_RESERVE_SETTING, GENERIC_PLUGIN_ICON, HIDDEN_PLUGINS_SETTING, HIDDEN_PLUGINS_SETTING_ID } from './settings.ts'
+import type { PluginDefinition } from './contract.ts'
+import type { SettingDefinition, SettingsStore } from './settings.ts'
 
 /**
  * Merge a seed patch onto an existing seed. `patch.meta` is shallow-merged
@@ -100,7 +103,9 @@ function clampRect(x: number, y: number, width: number, height: number): { x: nu
   }
 }
 
-export function createWorkbenchService(store: LayoutStore): WorkbenchService {
+export function createWorkbenchService(store: LayoutStore, settings: SettingsStore): WorkbenchService {
+  const plugins = new Map<string, PluginDefinition>()
+  const pluginListeners = new Set<() => void>()
   const activityItems = new Map<string, ActivityBarItemDefinition>()
   const panels = new Map<string, ViewDefinition & { region: 'sideBar' }>()
   const editorViews = new Map<string, ViewDefinition>()
@@ -111,6 +116,31 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
   const notify = (): void => {
     for (const listener of [...listeners]) listener()
   }
+  const notifyPlugins = (): void => {
+    notify()
+    for (const listener of [...pluginListeners]) listener()
+  }
+  const registerPlugin = (def: PluginDefinition): (() => void) => {
+    if (plugins.has(def.id)) throw new Error(`[dock] plugin "${def.id}" already registered`)
+    plugins.set(def.id, def)
+    notifyPlugins()
+    return () => { if (plugins.get(def.id) === def) { plugins.delete(def.id); notifyPlugins() } }
+  }
+  const onDidChangePlugins = (listener: () => void): (() => void) => {
+    pluginListeners.add(listener)
+    return () => { pluginListeners.delete(listener) }
+  }
+
+  // The workbench itself is a first-class entry in its own registry. Keep the
+  // disposer in the service so client-fiber disposal cannot orphan this row.
+  const disposeDockPlugin = registerPlugin({
+    id: DOCK_BASE_PLUGIN_ID,
+    title: 'Dock',
+    description: 'Workbench dock and settings',
+    icon: GENERIC_PLUGIN_ICON,
+    hasEntry: true,
+    order: 0,
+  })
 
   const subscribe = (listener: () => void): (() => void) => {
     listeners.add(listener)
@@ -407,7 +437,48 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     }
   }
 
+  // Dock-owned settings are adapters over the layout store: either surface can
+  // be used by settings UI or the context menu without creating a second owner.
+  // Keep their registration disposers with the service so the client fiber can
+  // tear down this whole adapter when the dock stops.
+  const disposeDockPositionSetting = settings.register(DOCK_POSITION_SETTING)
+  const disposeDockAutoHideSetting = settings.register(DOCK_AUTO_HIDE_SETTING)
+  const disposeDockReserveSetting = settings.register(DOCK_RESERVE_SETTING)
+  const disposeHiddenPluginsSetting = settings.register(HIDDEN_PLUGINS_SETTING)
+  const syncLayoutToSettings = (): void => {
+    const layout = store.getLayout()
+    if (settings.get(DOCK_POSITION_SETTING.id) !== layout.dock) settings.set(DOCK_POSITION_SETTING.id, layout.dock)
+    if (settings.get(DOCK_AUTO_HIDE_SETTING.id) !== layout.autoHide) settings.set(DOCK_AUTO_HIDE_SETTING.id, layout.autoHide)
+  }
+  syncLayoutToSettings()
+  const stopLayoutSync = store.subscribe(syncLayoutToSettings)
+  const stopSettingSync = settings.subscribe(() => {
+    const dock = settings.get<'left' | 'right' | 'top' | 'bottom'>(DOCK_POSITION_SETTING.id)
+    const autoHide = settings.get<'off' | 'edge'>(DOCK_AUTO_HIDE_SETTING.id)
+    const patch: Partial<WorkbenchLayout> = {}
+    if (dock !== undefined && dock !== store.getLayout().dock) patch.dock = dock
+    if (autoHide !== undefined && autoHide !== store.getLayout().autoHide) patch.autoHide = autoHide
+    if (Object.keys(patch).length > 0) store.update(patch)
+  })
+  let disposed = false
+  const dispose = (): void => {
+    if (disposed) return
+    disposed = true
+    stopLayoutSync()
+    stopSettingSync()
+    disposeDockPlugin()
+    disposeHiddenPluginsSetting()
+    disposeDockReserveSetting()
+    disposeDockAutoHideSetting()
+    disposeDockPositionSetting()
+  }
+
   return {
+    dispose,
+    registerPlugin,
+    getPlugin: (id) => plugins.get(id),
+    getPlugins: () => Array.from(plugins.values()).sort((a, b) => (a.order ?? 100) - (b.order ?? 100)),
+    onDidChangePlugins,
     registerActivityBarItem,
     registerPanel,
     registerEditorView,
@@ -434,5 +505,18 @@ export function createWorkbenchService(store: LayoutStore): WorkbenchService {
     getStatusItems: () => Array.from(statusItems.values()),
     getCommands: () => Array.from(commands.values()),
     subscribe,
+    registerSetting: <T>(definition: SettingDefinition<T>) => settings.register(definition),
+    getSettings: (pluginId?: string) => pluginId === undefined
+      ? settings.getDefinitions()
+      : settings.getDefinitions().filter((definition) => definition.pluginId === pluginId),
+    getSetting: <T = unknown>(id: string) => settings.get<T>(id),
+    setSetting: <T = unknown>(id: string, value: T) => settings.set(id, value),
+    onDidChangeSetting: (listener: () => void) => settings.subscribe(listener),
+    getHiddenPluginIds: () => settings.get<string[]>(HIDDEN_PLUGINS_SETTING_ID) ?? [],
+    setPluginHidden: (pluginId: string, hidden: boolean) => {
+      const current = settings.get<string[]>(HIDDEN_PLUGINS_SETTING_ID) ?? []
+      const next = hidden ? [...new Set([...current, pluginId])] : current.filter((id) => id !== pluginId)
+      settings.set(HIDDEN_PLUGINS_SETTING_ID, next)
+    },
   }
 }

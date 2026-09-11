@@ -15,7 +15,8 @@ Base plugin for the DSH Web workbench: a VSCode-style layout shell (activity bar
 - **Status bar**: bottom status item registration.
 - **Command system**: `executeCommand` command registration and invocation.
 - **Layout persistence**: panel / floating-window layout is kept in localStorage and restored on reload.
-- **Open registry**: `registerActivityBarItem` / `registerPanel` / `registerEditorView` / `registerStatusBarItem` / `registerCommand` — each returns a disposer, so wrapping it in `ctx.effect` cleans up automatically when the plugin is disabled.
+- **Settings window**: a built-in settings dialog displays settings registered by feature plugins, with validation, ordering, keyboard focus management and persistence across reloads.
+- **Open registry**: `registerActivityBarItem` / `registerPanel` / `registerEditorView` / `registerStatusBarItem` / `registerCommand` / `registerSetting` — each returns a disposer, so wrapping it in `ctx.effect` cleans up automatically when the plugin is disabled.
 
 ## Recommended companion plugins (composable — install on demand)
 
@@ -38,11 +39,39 @@ The dock base only provides the workbench shell; concrete capabilities like file
 
 Installing `dock` alone is perfectly fine too — it is a clean workbench shell, ready for you to add components any time.
 
+## Settings API
+
+Since 0.2.0, the workbench exposes a public settings-registration API. Feature plugins call `ctx.workbench.registerSetting`; pass the disposer to `ctx.effect` so the registration is removed automatically when the plugin is disabled or hot-reloaded. The settings window sorts entries by `order` (then `id`), and each editor receives only its current value, an `onChange` callback and the active locale. Values are validated before they are written:
+
+```ts
+ctx.effect(() => ctx.workbench.registerSetting({
+  id: 'my-plugin:compact',
+  pluginId: 'my-plugin',
+  // Text may be a plain string or a locale-aware factory.
+  title: (locale) => locale === 'zh' ? '紧凑模式' : 'Compact mode',
+  defaultValue: false,
+  component: CompactToggle,
+  validate: (value): value is boolean => typeof value === 'boolean',
+}))
+```
+
+`pluginId` decides which plugin page hosts the setting. A plugin should also register metadata through `registerPlugin({ id, title, description, icon, hasEntry })` so the settings window can list it (a missing icon falls back to dock's generic plugin icon). Plugins with a dock entry (`hasEntry: true`) get an "Open" button and a "Show in dock" switch; a hidden entry can still be opened from the settings window.
+
+Open the settings window from the workbench to edit registered values. Settings are persisted in `localStorage` under `dock:settings` and restored after reload. If storage is unavailable or corrupt, the workbench continues with in-memory values and defaults. Plugins can also use `getSetting`, `setSetting` and `onDidChangeSetting` to read, update and subscribe to changes.
+
+### General settings
+
+Dock's own options live under "General settings": position, auto-hide, and "Reserve space for the dock".
+
+- **Dock position**: a four-way segmented switch (left/right/top/bottom) that shares one state with the right-click menu.
+- **Auto-hide**: the bar withdraws when the mouse leaves and the edge hotspot revives it.
+- **Reserve space for the dock** (on by default): the app shell gives up the measured bar width plus a 12px gap on the docked edge, so edge-hugging page chrome such as the conversation turn rail stays clear of the floating dock bar. The reserve is recomputed when the bar resizes, the window resizes, the bar auto-hides, or the switch changes, and drops to zero when disabled or when the dock is gone.
+
 ## Dependencies
 
 | Dependency | Type | Notes |
 | --- | --- | --- |
-| DSH Web environment | runtime | required. Client platform is Web; installed via `dsh plugin --profile web add` |
+| DSH Web environment | runtime | required, minimum version `>=0.1.3-alpha.2`. Client platform is Web; installed via `dsh plugin --profile web add` |
 | `cordis` ^4.0.0-rc.7 | peer | plugin framework (ships with DSH) |
 | `react` / `react-dom` ^18.2.0 | peer (optional) | needed for client rendering; without them the workbench UI does not activate |
 
@@ -50,7 +79,7 @@ dock itself depends on no other dock-family plugin — it is the foundation of t
 
 ## Install
 
-Requires a DSH Web environment (`dsh plugin --profile web add`).
+Requires a DSH Web environment (`dsh plugin --profile web add`) running Harness `0.1.3-alpha.2` or newer.
 
 Recommended install from the npm registry:
 

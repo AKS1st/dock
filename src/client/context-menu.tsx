@@ -3,12 +3,9 @@
  * A single fixed-position popup with checkable items; closes on outside
  * mousedown, scroll, blur or Escape. Styles live in styles.ts (`.dsh-wb-menu*`)
  * so the menu follows the DSH theme tokens like the rest of the shell.
- *
- * The root stops mousedown propagation: the outside-close listener is
- * document-level, so without this an item's click would be swallowed by the
- * close-then-unmount sequence.
  */
-import { createElement, useEffect, type ReactNode } from 'react'
+import { createElement, useEffect, useRef, type ReactNode } from 'react'
+import { isMenuActivationKey, menuItemRole } from './ui-helpers.ts'
 
 /** One menu row. */
 export interface ContextMenuItem {
@@ -29,15 +26,20 @@ export interface ContextMenuState {
 
 export function ContextMenu(props: { menu: ContextMenuState | null; onClose: () => void }): ReactNode {
   const { menu, onClose } = props
+  const firstItemRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (menu === null) return
+    firstItemRef.current?.focus()
     const close = (): void => onClose()
     document.addEventListener('mousedown', close)
     document.addEventListener('scroll', close, true)
     window.addEventListener('blur', close)
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') close()
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        close()
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => {
@@ -63,9 +65,18 @@ export function ContextMenu(props: { menu: ContextMenuState | null; onClose: () 
   },
   menu.items.map((item, index) => createElement('div', {
     key: `${item.label}-${index}`,
+    ref: index === 0 ? firstItemRef : undefined,
     className: 'dsh-wb-menu-item',
-    role: item.kind === 'checkbox' ? 'menuitemcheckbox' : 'menuitemradio',
+    role: menuItemRole(item.kind),
     'aria-checked': item.checked ?? false,
+    tabIndex: 0,
+    onKeyDown: (event: KeyboardEvent) => {
+      if (isMenuActivationKey(event.key)) {
+        event.preventDefault()
+        item.onClick?.()
+        onClose()
+      }
+    },
     onClick: (event: MouseEvent) => {
       event.stopPropagation()
       item.onClick?.()

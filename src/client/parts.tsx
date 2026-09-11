@@ -24,14 +24,60 @@ import type {
   WorkbenchLayout,
   WorkbenchService,
 } from './contract.ts'
-import { FLOATING_MIN_HEIGHT, FLOATING_MIN_WIDTH } from './contract.ts'
+import { FLOATING_MIN_HEIGHT, FLOATING_MIN_WIDTH } from './ui-constants.ts'
+import { DOCK_RESERVE_SETTING_ID } from './settings.ts'
+import { dockReservePx } from './internal/dock-space.ts'
 import type { LayoutStore } from './layout.ts'
 import { reorderActivity } from './layout.ts'
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from './context-menu'
+import { SettingsWindow } from './SettingsWindow.tsx'
+import { isDockEnglish } from './internal/localization.ts'
 
 /** Sort helper shared by item lists. */
 function byOrder<T extends { order?: number }>(a: T, b: T): number {
   return (a.order ?? 100) - (b.order ?? 100)
+}
+
+/** The dock bar element whose measured size the page reserve is derived from. */
+const DOCK_BAR_SELECTOR = '.dsh-wb-activity'
+
+/**
+ * Publish `body[data-dock]` (the docked edge, consumed by the `#root` push
+ * rules) and `--dock-size` (the space the app shell gives up).
+ *
+ * The reserve is measured from the floating bar itself, so it tracks the
+ * number of entries and the active theme instead of a hardcoded width. It is
+ * released while the bar is auto-hidden, because nothing is there to avoid.
+ */
+function useDockReserve(
+  rootRef: { current: HTMLDivElement | null },
+  dock: DockPosition,
+  autoHidden: boolean,
+  enabled: boolean,
+): void {
+  useEffect(() => {
+    const body = document.body
+    const publish = (): void => {
+      const bar = rootRef.current?.querySelector<HTMLElement>(DOCK_BAR_SELECTOR) ?? null
+      const reserve = enabled && !autoHidden && bar !== null
+        ? dockReservePx(dock, bar.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight })
+        : 0
+      if (reserve > 0) body.style.setProperty('--dock-size', `${reserve}px`)
+      else body.style.removeProperty('--dock-size')
+    }
+    body.setAttribute('data-dock', dock)
+    publish()
+    const bar = rootRef.current?.querySelector<HTMLElement>(DOCK_BAR_SELECTOR) ?? null
+    const observer = bar !== null && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(publish) : null
+    if (bar !== null) observer?.observe(bar)
+    window.addEventListener('resize', publish)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', publish)
+      body.removeAttribute('data-dock')
+      body.style.removeProperty('--dock-size')
+    }
+  }, [rootRef, dock, autoHidden, enabled])
 }
 
 /**
@@ -120,8 +166,7 @@ const DOCK_LABEL: Record<DockPosition, { zh: string; en: string }> = {
  *  English, 'zh-CN' for Chinese), so the menu follows the UI language
  *  without importing the locale service. */
 function isEnglish(): boolean {
-  return typeof document !== 'undefined'
-    && (document.documentElement.lang || '').toLowerCase().startsWith('en')
+  return isDockEnglish()
 }
 
 /** The whole workbench shell. */
@@ -133,7 +178,16 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     () => registryVersion,
   )
   const autoHide = layout.autoHide === 'edge'
+  const settingsVersion = useSyncExternalStore(service.onDidChangeSetting, () => service.getHiddenPluginIds().join('\u0000'))
+  const hiddenPlugins = useMemo(() => new Set(service.getHiddenPluginIds()), [settingsVersion, service])
+  const reserveSpace = useSyncExternalStore(
+    service.onDidChangeSetting,
+    () => service.getSetting<boolean>(DOCK_RESERVE_SETTING_ID) !== false,
+  )
+  const rootRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsRestoreRef = useRef<HTMLElement | null>(null)
   const [autoHidden, setAutoHidden] = useState(false)
   const hideTimer = useRef<number | null>(null)
   useEffect(() => () => { if (hideTimer.current !== null) window.clearTimeout(hideTimer.current) }, [])
@@ -141,12 +195,12 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const activityItems = useMemo(() => {
     // User drag order (activityOrder) wins; items not listed keep their
     // registered `order` and are appended in declaration order.
-    const all = [...service.getActivityItems()].sort(byOrder)
+    const all = [...service.getActivityItems()].filter((item) => !hiddenPlugins.has(item.pluginId ?? item.id)).sort(byOrder)
     const byId = new Map(all.map((item) => [item.id, item]))
     const userOrdered = layout.activityOrder.map((id) => byId.get(id)).filter((item): item is ActivityBarItemDefinition => item !== undefined)
     const rest = all.filter((item) => !layout.activityOrder.includes(item.id))
     return [...userOrdered, ...rest]
-  }, [registry, service, layout.activityOrder])
+  }, [registry, service, layout.activityOrder, hiddenPlugins])
   const panels = useMemo(() => [...service.getPanels()].sort(byOrder), [registry, service])
   const editorViews = useMemo(() => [...service.getEditorViews()].sort(byOrder), [registry, service])
   const statusItems = useMemo(() => [...service.getStatusItems()].sort(byOrder), [registry, service])
@@ -154,7 +208,23 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const sessionId = useSessionId(ctx)
   const collapsed = layout.activity === null
 
-  const activeActivity = layout.activity === null ? undefined : service.getActivityItem(layout.activity)
+  // If an active entry is hidden (including when settings are restored), clear
+  // activity so the shell cannot point at an unavailable pane.
+  useEffect(() => {
+    if (layout.activity !== null) {
+      const active = service.getActivityItem(layout.activity)
+      if (active !== undefined && hiddenPlugins.has(active.pluginId ?? active.id)) store.update({ activity: null })
+    }
+  }, [layout.activity, hiddenPlugins, service, store])
+
+  // Derive visibility synchronously so a restored/updated hidden activity is
+  // never rendered for one frame while the persistence effect clears it.
+  const activeActivity = layout.activity === null
+    ? undefined
+    : (() => {
+      const activity = service.getActivityItem(layout.activity)
+      return activity !== undefined && !hiddenPlugins.has(activity.pluginId ?? activity.id) ? activity : undefined
+    })()
   const activePane = activeActivity === undefined || !layout.sideBarOpen
     ? undefined
     : panels.find((panel) => panel.id === activeActivity.paneId && panel.region === 'sideBar')
@@ -165,7 +235,10 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
 
   // Right-click menu: dock position + auto-hide toggle. Labels follow the
   // DSH UI language (see isEnglish). The absorb-native item was removed.
-  const openDockMenu = (x: number, y: number): void => {
+  const openDockMenu = (x: number, y: number, target?: EventTarget | null): void => {
+    settingsRestoreRef.current = target instanceof HTMLElement
+      ? target.closest('button') ?? target
+      : null
     const en = isEnglish()
     const items: ContextMenuItem[] = [
       ...(['left', 'right', 'top', 'bottom'] as DockPosition[]).map((dock) => ({
@@ -180,6 +253,10 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         onClick: () => store.update({ autoHide: autoHide ? 'off' : 'edge' }),
       },
     ]
+    items.push({
+      label: isEnglish() ? 'Settings' : '设置',
+      onClick: () => setSettingsOpen(true),
+    })
     setMenu({ x, y, items })
   }
 
@@ -203,12 +280,16 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     autoHidden ? 'wb-autohidden' : undefined,
   ].filter(Boolean).join(' ')
 
+  // Publish the docked edge and reserve page space for the floating bar.
+  useDockReserve(rootRef, layout.dock, autoHidden, reserveSpace)
+
   return createElement(
     Fragment,
     null,
     createElement(
       'div',
       {
+        ref: rootRef,
         className: rootClass,
         'data-dock-shell': '',
         'data-dock': layout.dock,
@@ -224,7 +305,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
         // Clicking the active item again collapses the side bar (VSCode toggle).
         store.update(layout.activity === id ? { activity: null } : { activity: id, sideBarOpen: true })
       },
-      onContextMenu: (x, y) => openDockMenu(x, y),
+      onContextMenu: (x, y, target) => openDockMenu(x, y, target),
       onReorder: (draggedId, targetId) => {
         // Reorder by the current visible order and persist the full user
         // order into activityOrder (newly registered items append later).
@@ -266,6 +347,12 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     // are independent of the auto-hide interaction (hovering them neither
     // reveals nor keeps the dock visible) and are never faded with it.
     createElement(ContextMenu, { menu, onClose: () => setMenu(null) }),
+    createElement(SettingsWindow, {
+      service,
+      open: settingsOpen,
+      onClose: () => setSettingsOpen(false),
+      restoreFocusRef: settingsRestoreRef,
+    }),
     createElement(FloatingWindows, {
       ctx,
       service,
@@ -437,7 +524,7 @@ function ActivityBar(props: {
   activeId: string | null
   dockMode: boolean
   onActivate: (id: string) => void
-  onContextMenu: (x: number, y: number) => void
+  onContextMenu: (x: number, y: number, target: EventTarget | null) => void
   onReorder: (draggedId: string, targetId: string) => void
 }): ReactNode {
   const { items, activeId, dockMode, onActivate, onContextMenu, onReorder } = props
@@ -450,7 +537,7 @@ function ActivityBar(props: {
     // opens the dock position menu.
     onContextMenu: (event: MouseEvent) => {
       event.preventDefault()
-      onContextMenu(event.clientX, event.clientY)
+      onContextMenu(event.clientX, event.clientY, event.target)
     },
   },
   items.map((item, index) => createElement('button', {

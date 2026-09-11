@@ -12,6 +12,8 @@
  * client-bundle purity convention.
  */
 import type { ComponentType, ReactNode } from 'react';
+import type { SettingDefinition } from './settings.ts';
+export type { SettingComponent, SettingComponentProps, SettingDefinition } from './settings.ts';
 /** The cordis context face the workbench hands to view components
  *  (structural subset; feature plugins may extend it locally). */
 export interface WorkbenchContext {
@@ -92,6 +94,8 @@ export interface ViewDefinition {
 /** One activity-bar item (the left vertical strip, VSCode style). */
 export interface ActivityBarItemDefinition {
     id: string;
+    /** Owning plugin id, used for plugin visibility settings. Defaults to id. */
+    pluginId?: string;
     title: string;
     icon: IconRef;
     /** Sort order (ascending); default 100. */
@@ -116,13 +120,6 @@ export interface CommandDefinition {
 }
 /** The screen edge the workbench docks to. */
 export type DockPosition = 'left' | 'right' | 'top' | 'bottom';
-/** Minimum floating-window width in px (enforced by drag math and CSS). */
-export declare const FLOATING_MIN_WIDTH = 240;
-/** Minimum floating-window height in px (enforced by drag math and CSS). */
-export declare const FLOATING_MIN_HEIGHT = 160;
-/** Floating-window title bar height in px (`.dsh-wb-floating-head`); the
- *  viewport clamp keeps at least this strip reachable on screen. */
-export declare const FLOATING_HEAD_HEIGHT = 34;
 /**
  * The workbench layout snapshot: which activity is active, whether the side
  * bar is open, which editor views are open (tab strip), the dock
@@ -187,7 +184,21 @@ export interface OpenPathOptions {
  * consuming plugin wraps it in `ctx.effect(...)` so Cordis fiber disposal
  * (HMR / disable) reverts the registration.
  */
+export interface PluginDefinition {
+    id: string;
+    title: string;
+    description?: string;
+    icon?: IconRef;
+    hasEntry: boolean;
+    order?: number;
+}
 export interface WorkbenchService {
+    /** Dispose dock-owned settings and store subscriptions for this client fiber. */
+    dispose(): void;
+    registerPlugin(def: PluginDefinition): () => void;
+    getPlugin(id: string): PluginDefinition | undefined;
+    getPlugins(): readonly PluginDefinition[];
+    onDidChangePlugins(listener: () => void): () => void;
     registerActivityBarItem(def: ActivityBarItemDefinition): () => void;
     registerPanel(def: ViewDefinition & {
         region: 'sideBar';
@@ -267,6 +278,19 @@ export interface WorkbenchService {
     getCommands(): readonly CommandDefinition[];
     /** Subscribe to registry changes; returns the disposer. */
     subscribe(listener: () => void): () => void;
+    /** Register a validated setting; the disposer removes this definition. */
+    registerSetting<T>(definition: SettingDefinition<T>): () => void;
+    /** Snapshot of registered setting definitions, optionally scoped to a plugin. */
+    getSettings(pluginId?: string): readonly SettingDefinition<unknown>[];
+    /** Read a registered setting, or undefined when no such setting exists. */
+    getSetting<T = unknown>(id: string): T | undefined;
+    /** Validate and persist a setting value, falling back to its default when invalid. */
+    setSetting<T = unknown>(id: string, value: T): void;
+    /** Subscribe to setting changes; returns the disposer. */
+    onDidChangeSetting(listener: () => void): () => void;
+    /** Read and update the persisted hidden plugin id list. */
+    getHiddenPluginIds(): readonly string[];
+    setPluginHidden(pluginId: string, hidden: boolean): void;
 }
 declare module 'cordis' {
     interface Context {

@@ -15,7 +15,8 @@ DSH Web 工作台基础插件：提供 VSCode 风格布局外壳（活动栏 / �
 - **状态栏**：底部状态项注册。
 - **命令系统**：`executeCommand` 命令注册与调用。
 - **布局持久化**：面板/悬浮窗口布局保存在 localStorage，刷新后恢复。
-- **开放注册表**：`registerActivityBarItem` / `registerPanel` / `registerEditorView` / `registerStatusBarItem` / `registerCommand`，全部返回反注册函数，配合 `ctx.effect` 使用可随插件停用自动清理。
+- **设置窗口**：内置设置对话框展示各插件注册的设置项；支持校验、排序、键盘焦点管理与跨刷新持久化。
+- **开放注册表**：`registerActivityBarItem` / `registerPanel` / `registerEditorView` / `registerStatusBarItem` / `registerCommand` / `registerSetting`，全部返回反注册函数，配合 `ctx.effect` 使用可随插件停用自动清理。
 
 ## 推荐搭配插件（可组合，按需安装）
 
@@ -38,11 +39,39 @@ dock 基座只提供工作台外壳，不附带文件浏览、编辑等具体能
 
 只装 `dock` 本身也完全没问题——它就是一个干净的工作台外壳，等你随时往里加零件。
 
+## 设置 API
+
+从 0.2.0 起，工作台公开设置注册 API。功能插件通过 `ctx.workbench.registerSetting` 注册设置项；返回的反注册函数应交给 `ctx.effect`，这样插件停用或热更新时会自动移除注册。设置窗口会按 `order`（再按 `id`）排序，编辑器只接收当前值、`onChange` 回调和当前语言，并在写入前执行 `validate`：
+
+```ts
+ctx.effect(() => ctx.workbench.registerSetting({
+  id: 'my-plugin:compact',
+  pluginId: 'my-plugin',
+  // 文案可以是字符串，也可以是按语言求值的工厂函数
+  title: (locale) => locale === 'zh' ? '紧凑模式' : 'Compact mode',
+  defaultValue: false,
+  component: CompactToggle,
+  validate: (value): value is boolean => typeof value === 'boolean',
+}))
+```
+
+`pluginId` 决定设置显示在哪个插件的设置页里。插件还应通过 `registerPlugin({ id, title, description, icon, hasEntry })` 注册元数据，设置窗口才能列出它（没有图标时使用 dock 自带的通用插件图标）。有 dock 入口（`hasEntry: true`）的插件，列表中会提供“打开”按钮和“在 dock 中显示”开关；入口隐藏后仍可从设置里打开。
+
+用户可从工作台打开设置窗口；设置值保存在 `localStorage` 的 `dock:settings` 中，刷新后恢复。存储不可用或数据损坏时，工作台使用内存值和默认值继续运行。插件也可通过 `getSetting` / `setSetting` / `onDidChangeSetting` 读取、更新和订阅设置变化。
+
+### 通用设置
+
+dock 自身在设置窗口的“通用设置”里提供位置、自动隐藏和“为 dock 预留空间”：
+
+- **Dock 位置**：左/右/上/下四联切换，右键菜单里的停靠项与它共享同一份状态。
+- **自动隐藏**：鼠标远离后收起，边缘热区唤回。
+- **为 dock 预留空间**（默认开启）：在停靠侧为悬浮 dock 栏留出实测宽度 + 12px 的边距，让页面右侧的会话进度导航栏等贴边元素不被 dock 栏遮挡。dock 栏尺寸变化、窗口缩放、自动隐藏和该开关切换时都会重新计算，关闭该开关或关闭 dock 时预留归零。
+
 ## 依赖
 
 | 依赖 | 类型 | 说明 |
 | --- | --- | --- |
-| DSH Web 环境 | 运行时 | 必需。客户端平台为 Web，通过 `dsh plugin --profile web add` 安装 |
+| DSH Web 环境 | 运行时 | 必需，最低版本 `>=0.1.3-alpha.2`。客户端平台为 Web，通过 `dsh plugin --profile web add` 安装 |
 | `cordis` ^4.0.0-rc.7 | peer | 插件框架（DSH 自带） |
 | `react` / `react-dom` ^18.2.0 | peer（可选） | 客户端渲染需要；未提供时工作台 UI 不激活 |
 
@@ -50,7 +79,7 @@ dock 自身不依赖任何其他 dock 系列插件——它是系列的地基，
 
 ## 安装
 
-需要 DSH Web 环境（`dsh plugin --profile web add`）。
+需要 DSH Web 环境（`dsh plugin --profile web add`），且 Harness 版本至少为 `0.1.3-alpha.2`。
 
 推荐从 npm registry 安装：
 

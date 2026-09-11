@@ -14,4 +14,5 @@
  */
 import type { WorkbenchService } from './contract.ts';
 import type { LayoutStore } from './layout.ts';
-export declare function createWorkbenchService(store: LayoutStore): WorkbenchService;
+import type { SettingsStore } from './settings.ts';
+export declare function createWorkbenchService(store: LayoutStore, settings: SettingsStore): WorkbenchService;

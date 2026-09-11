@@ -89,20 +89,23 @@ const CSS = `
 .dsh-wb-resize-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize; }
 .dsh-wb-resize-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
 
-/* Layout push: #root yields the docked size on the docked edge. Horizontal
-   docks shrink #root's width via margins; vertical docks compress its fixed
-   height (height:100%) via padding with an explicit border-box so the app
-   shell content is never overlapped and no scrollbar appears. */
+/* Layout push: #root yields the space the floating dock bar occupies, so the
+   bar never covers page chrome that hugs the docked edge (the conversation
+   turn rail is the current case). Horizontal docks shrink #root's width via
+   margins; vertical docks compress its fixed height (height:100%) via padding
+   with an explicit border-box so no scrollbar appears. --dock-size is
+   published on body by the shell from the measured bar; it is 0 while the bar
+   is auto-hidden or the reserve setting is off. */
 #root {
-  margin-right: var(--dock-size, 0px);
   transition: margin-right 0.18s var(--ds-ease-in-out, ease),
               margin-left 0.18s var(--ds-ease-in-out, ease),
               padding-top 0.18s var(--ds-ease-in-out, ease),
               padding-bottom 0.18s var(--ds-ease-in-out, ease);
 }
-body[data-dock="left"] #root   { margin-right: 0; margin-left: var(--dock-size, 0px); }
+body[data-dock="right"] #root  { margin-right: var(--dock-size, 0px); }
+body[data-dock="left"] #root   { margin-left: var(--dock-size, 0px); }
 body[data-dock="top"] #root,
-body[data-dock="bottom"] #root { margin-right: 0; box-sizing: border-box; }
+body[data-dock="bottom"] #root { box-sizing: border-box; }
 body[data-dock="top"] #root    { padding-top: var(--dock-size, 0px); }
 body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 
@@ -302,6 +305,162 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 .dsh-wb-root.wb-collapsed[data-dock="right"] { width: 48px; }
 .dsh-wb-root.wb-collapsed[data-dock="top"],
 .dsh-wb-root.wb-collapsed[data-dock="bottom"] { height: 44px; }
+
+/* Settings dialog is outside the auto-hide root so it remains visible and interactive. */
+.dsh-wb-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.dsh-wb-settings {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 32px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-2, #ffffff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+.dsh-wb-settings-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+}
+.dsh-wb-settings-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsh-wb-settings-close {
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 3px 8px;
+}
+.dsh-wb-settings-close:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, 0.12)); }
+.dsh-wb-settings-page {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 4px 16px 16px;
+  animation: dsh-wb-settings-page-in 180ms ease both;
+}
+@keyframes dsh-wb-settings-page-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+.dsh-wb-settings-page-list { animation-name: dsh-wb-settings-page-list-in; }
+@keyframes dsh-wb-settings-page-list-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+.dsh-wb-settings-general h3, .dsh-wb-settings-plugins h3 { margin: 10px 0 6px; font-size: 13px; }
+.dsh-wb-settings-tabs { display: flex; gap: 4px; margin-bottom: 6px; border-bottom: 1px solid var(--dsw-alias-border-l2, #d8dbe0); }
+.dsh-wb-settings-tab { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary, #656d76); padding: 7px 12px; cursor: pointer; }
+.dsh-wb-settings-tab.active { color: inherit; border-bottom-color: var(--dsw-alias-border-accent, #4f6ef2); }
+.dsh-wb-plugin-card { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; padding: 6px 10px; border-bottom: 1px solid var(--dsw-alias-border-l2, #d8dbe0); }
+.dsh-wb-plugin-card.is-clickable { cursor: pointer; }
+.dsh-wb-plugin-card.is-clickable:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.12)); }
+.dsh-wb-plugin-icon { flex: none; width: 24px; height: 24px; display: grid; place-items: center; color: var(--dsw-alias-label-secondary, #656d76); }
+.dsh-wb-plugin-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dsh-wb-plugin-copy small { color: var(--dsw-alias-label-secondary, #656d76); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsh-wb-plugin-actions { flex: none; display: flex; align-items: center; gap: 8px; }
+.dsh-wb-plugin-chevron { flex: none; width: 12px; text-align: center; font-size: 18px; line-height: 1; color: var(--dsw-alias-label-secondary, #656d76); }
+.dsh-wb-plugin-open { border: 1px solid var(--dsw-alias-border-l2, #d8dbe0); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 3px 9px; }
+.dsh-wb-plugin-open:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.14)); }
+.dsh-wb-plugin-switch { flex: none; width: 34px; height: 20px; padding: 2px; border: 0; border-radius: 12px; background: var(--dsw-alias-border-l2, #d8dbe0); cursor: pointer; }
+.dsh-wb-plugin-switch span { display: block; width: 16px; height: 16px; border-radius: 50%; background: white; transition: transform .18s ease; }
+.dsh-wb-plugin-switch.on { background: var(--dsw-alias-border-accent, #4f6ef2); }
+.dsh-wb-plugin-switch.on span { transform: translateX(14px); }
+/* The same switch, for a dock-owned setting row. */
+.dsh-wb-setting-switch { flex: none; width: 34px; height: 20px; padding: 2px; border: 0; border-radius: 12px; background: var(--dsw-alias-border-l2, #d8dbe0); cursor: pointer; }
+.dsh-wb-setting-switch span { display: block; width: 16px; height: 16px; border-radius: 50%; background: white; transition: transform .18s ease; }
+.dsh-wb-setting-switch.on { background: var(--dsw-alias-border-accent, #4f6ef2); }
+.dsh-wb-setting-switch.on span { transform: translateX(14px); }
+.dsh-wb-settings-back { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 25px; line-height: 1; padding: 0 4px; }
+.dsh-wb-settings-body { padding: 4px 16px 16px; }
+.dsh-wb-setting-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  min-width: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+}
+.dsh-wb-setting-row:last-child { border-bottom: 0; }
+.dsh-wb-setting-copy { flex: 1; min-width: 0; }
+.dsh-wb-setting-title { overflow-wrap: anywhere; }
+.dsh-wb-setting-description {
+  margin-top: 3px;
+  color: var(--dsw-alias-label-secondary, #656d76);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.dsh-wb-setting-control { flex: none; max-width: 100%; }
+.dsh-wb-setting-checkbox { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dsh-wb-setting-checkbox input { accent-color: var(--dsw-alias-border-accent, #4f6ef2); }
+/* Shared segmented control any feature plugin may use for its own setting. */
+.dsh-wb-setting-choices {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--dsw-alias-border-l2, #d8dbe0);
+  border-radius: 10px;
+  background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, .08));
+}
+.dsh-wb-setting-choice {
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #656d76);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.dsh-wb-setting-choice:hover { color: inherit; background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, .14)); }
+.dsh-wb-setting-choice.active { color: var(--dsw-alias-label-primary, #1f2328); background: var(--dsw-alias-bg-layer-2, #fff); box-shadow: 0 1px 4px rgba(0, 0, 0, .16); }
+.dsh-wb-settings-empty {
+  padding: 40px 16px;
+  color: var(--dsw-alias-label-secondary, #656d76);
+  text-align: center;
+}
+
+/* Settings refresh: clearer hierarchy, cards, focus states, and segmented controls. */
+.dsh-wb-settings-overlay { background: rgba(15, 23, 42, .32); backdrop-filter: blur(3px); }
+.dsh-wb-settings { width: min(620px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); border-radius: 16px; box-shadow: 0 20px 56px rgba(0, 0, 0, .3); }
+.dsh-wb-settings-head { padding: 16px 20px; gap: 12px; }
+.dsh-wb-settings-head h2 { font-size: 17px; line-height: 1.3; }
+.dsh-wb-settings-page { padding: 12px 20px 20px; overflow-x: hidden; scrollbar-gutter: stable; }
+.dsh-wb-settings-general, .dsh-wb-settings-plugins { min-width: 0; margin-bottom: 24px; }
+.dsh-wb-settings-plugins:last-child { margin-bottom: 0; }
+.dsh-wb-settings-general h3, .dsh-wb-settings-plugins h3 { margin: 0 0 10px; font-size: 15px; line-height: 1.35; color: var(--dsw-alias-label-primary, #1f2328); }
+.dsh-wb-settings-tabs { gap: 4px; margin-bottom: 10px; padding: 3px; border: 1px solid var(--dsw-alias-border-l2, #d8dbe0); border-radius: 10px; background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, .08)); }
+.dsh-wb-settings-tab { flex: 1; border: 0; border-radius: 7px; padding: 7px 12px; font-size: 13px; }
+.dsh-wb-settings-tab:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127, 127, 127, .12)); }
+.dsh-wb-settings-tab.active { background: var(--dsw-alias-bg-layer-2, #fff); box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
+.dsh-wb-plugin-list { display: grid; gap: 6px; min-width: 0; }
+.dsh-wb-plugin-card { min-width: 0; min-height: 42px; padding: 6px 10px; border: 1px solid var(--dsw-alias-border-l2, #d8dbe0); border-radius: 10px; }
+.dsh-wb-plugin-card.is-clickable:hover { border-color: var(--dsw-alias-border-accent, #4f6ef2); }
+.dsh-wb-plugin-copy { gap: 1px; }
+.dsh-wb-plugin-copy small { font-size: 11px; }
+.dsh-wb-setting-row { gap: 20px; min-width: 0; padding: 12px 0; }
+.dsh-wb-setting-title { font-size: 13px; }
+.dsh-wb-setting-description { margin-top: 3px; }
+.dsh-wb-position-switch { min-width: 260px; }
+.dsh-wb-position-option { padding: 6px 10px; font-size: 12px; }
+.dsh-wb-settings-close:focus-visible, .dsh-wb-settings-back:focus-visible, .dsh-wb-settings-tab:focus-visible, .dsh-wb-plugin-card:focus-visible, .dsh-wb-plugin-switch:focus-visible, .dsh-wb-plugin-open:focus-visible, .dsh-wb-setting-switch:focus-visible, .dsh-wb-setting-choice:focus-visible { outline: 2px solid var(--dsw-alias-border-accent, #4f6ef2); outline-offset: 2px; }
+@media (max-width: 520px) {
+  .dsh-wb-settings { width: calc(100vw - 20px); max-height: calc(100vh - 20px); }
+  .dsh-wb-settings-page { padding-left: 14px; padding-right: 14px; }
+  .dsh-wb-setting-row { flex-direction: column; gap: 10px; }
+  .dsh-wb-setting-control, .dsh-wb-position-switch { width: 100%; min-width: 0; }
+}
 
 /* Context menu: follows the DSH theme tokens (layer-2 panel background,
    label text, interactive hover) like the official overlay components. */
