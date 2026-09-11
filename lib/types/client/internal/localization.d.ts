@@ -15,6 +15,7 @@ export interface SettingsLabels {
     openPlugin: string;
     dockPosition: string;
     autoHide: string;
+    autoHideHint: string;
     reserveSpace: string;
     reserveSpaceHint: string;
     left: string;

@@ -26,6 +26,7 @@ export interface SettingsLabels {
   openPlugin: string
   dockPosition: string
   autoHide: string
+  autoHideHint: string
   reserveSpace: string
   reserveSpaceHint: string
   left: string
@@ -40,7 +41,7 @@ const LABELS: Record<DockLocale, SettingsLabels> = {
   zh: {
     settings: '设置', close: '关闭设置', back: '返回设置', empty: '暂无可配置的设置',
     general: '通用设置', plugins: '插件', entry: '入口', other: '其它', showPlugin: '显示', openPlugin: '打开',
-    dockPosition: 'Dock 位置', autoHide: '自动隐藏', left: '左侧', right: '右侧', top: '顶部', bottom: '底部',
+    dockPosition: 'Dock 位置', autoHide: '自动隐藏', autoHideHint: 'Dock 已隐藏，移到边缘可展开', left: '左侧', right: '右侧', top: '顶部', bottom: '底部',
     reserveSpace: '为 dock 预留空间',
     reserveSpaceHint: '在停靠侧空出一条边距，避免 dock 栏遮挡页面边缘的导航（例如会话进度导航栏）。',
     autoHideOn: '开启', autoHideOff: '关闭',
@@ -48,7 +49,7 @@ const LABELS: Record<DockLocale, SettingsLabels> = {
   en: {
     settings: 'Settings', close: 'Close settings', back: 'Back to settings', empty: 'No configurable settings',
     general: 'General settings', plugins: 'Plugins', entry: 'Entry', other: 'Other', showPlugin: 'Show', openPlugin: 'Open',
-    dockPosition: 'Dock position', autoHide: 'Auto-hide', left: 'Left', right: 'Right', top: 'Top', bottom: 'Bottom',
+    dockPosition: 'Dock position', autoHide: 'Auto-hide', autoHideHint: 'Dock hidden; move to the edge to reveal', left: 'Left', right: 'Right', top: 'Top', bottom: 'Bottom',
     reserveSpace: 'Reserve space for the dock',
     reserveSpaceHint: 'Keeps a gutter on the docked edge so the dock bar never covers edge-hugging page chrome such as the conversation turn rail.',
     autoHideOn: 'On', autoHideOff: 'Off',

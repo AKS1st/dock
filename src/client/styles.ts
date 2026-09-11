@@ -5,9 +5,8 @@
  * Layout model: the workbench docks to one of four screen edges
  * (`body[data-dock]`). The shell is always `[activity][body]` in the
  * dock direction; `body` is `[sidebar][main]` (sidebar always on the left).
- * The DSH app shell (#root) gives up the occupied size through the
- * --dock-size CSS variable (layout push), exactly one global mutation owned
- * by the base — feature plugins never touch global styles.
+ * The base publishes the docked edge and a measured turn-rail offset when
+ * enabled; feature plugins never touch global styles.
  */
 const CSS = `
 /* ── Floating windows: independent draggable/resizable view windows. They
@@ -89,25 +88,14 @@ const CSS = `
 .dsh-wb-resize-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize; }
 .dsh-wb-resize-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
 
-/* Layout push: #root yields the space the floating dock bar occupies, so the
-   bar never covers page chrome that hugs the docked edge (the conversation
-   turn rail is the current case). Horizontal docks shrink #root's width via
-   margins; vertical docks compress its fixed height (height:100%) via padding
-   with an explicit border-box so no scrollbar appears. --dock-size is
-   published on body by the shell from the measured bar; it is 0 while the bar
-   is auto-hidden or the reserve setting is off. */
-#root {
-  transition: margin-right 0.18s var(--ds-ease-in-out, ease),
-              margin-left 0.18s var(--ds-ease-in-out, ease),
-              padding-top 0.18s var(--ds-ease-in-out, ease),
-              padding-bottom 0.18s var(--ds-ease-in-out, ease);
+/* Shift only Harness's turn rail. Its inline frame variable is the stable
+   marker of the TurnNavigator; the rest of the page keeps its native width. */
+body[data-dock="right"] nav[style*="--turn-natural-height"] {
+  right: calc(
+    12px + var(--dock-turn-rail-offset, 0px)
+    - (var(--dsh-composer-side-clearance) + 16px)
+  );
 }
-body[data-dock="right"] #root  { margin-right: var(--dock-size, 0px); }
-body[data-dock="left"] #root   { margin-left: var(--dock-size, 0px); }
-body[data-dock="top"] #root,
-body[data-dock="bottom"] #root { box-sizing: border-box; }
-body[data-dock="top"] #root    { padding-top: var(--dock-size, 0px); }
-body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 
 .dsh-wb-root {
   position: fixed;
@@ -496,9 +484,8 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
   color: var(--dsw-alias-label-secondary, #656d76);
 }
 
-/* ── Dock mode (macOS-like): the activity bar floats as a frosted capsule,
-   the workbench stops pushing the app shell (--dock-size is 0), the side
-   bar pops up as a floating panel next to the dock. ── */
+/* ── Dock mode (macOS-like): the activity bar floats as a frosted capsule;
+   the side bar pops up as a floating panel next to the dock. ── */
 .dsh-wb-root[data-mode="dock"] {
   background: transparent;
   border: 0;
@@ -612,19 +599,73 @@ body[data-dock="bottom"] #root { padding-bottom: var(--dock-size, 0px); }
 .dsh-wb-autohide-hotspot[data-dock="top"] { top: 0; left: 0; right: 0; height: 4px; }
 .dsh-wb-autohide-hotspot[data-dock="bottom"] { bottom: 0; left: 0; right: 0; height: 4px; }
 
-/* Dock mode: the bar fades out (visibility flips after the fade completes
-   so the opacity transition stays visible). No root-level opacity rule —
-   the fade is scoped to the activity bar and sidebar only. */
-.dsh-wb-root[data-mode="dock"] .dsh-wb-activity,
+/* Auto-hide keeps a small edge marker visible, then reveals the capsule with
+   a short slide/scale animation. The sidebar still disappears completely
+   because it is not the discoverability affordance. */
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity {
+  transition: transform 0.42s cubic-bezier(.22, 1, .36, 1),
+              opacity 0.28s ease;
+}
 .dsh-wb-root[data-mode="dock"] .dsh-wb-sidebar {
   transition: opacity 0.3s var(--ds-ease-out, ease-out),
               visibility 0s linear 0.3s;
 }
-.dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-activity,
+.dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-activity {
+  opacity: 0;
+  pointer-events: none;
+}
+.dsh-wb-root[data-mode="dock"].wb-autohidden[data-dock="right"] .dsh-wb-activity {
+  transform: translate(22px, -50%) scale(.88);
+}
+.dsh-wb-root[data-mode="dock"].wb-autohidden[data-dock="left"] .dsh-wb-activity {
+  transform: translate(-22px, -50%) scale(.88);
+}
+.dsh-wb-root[data-mode="dock"].wb-autohidden[data-dock="top"] .dsh-wb-activity {
+  transform: translate(-50%, -22px) scale(.88);
+}
+.dsh-wb-root[data-mode="dock"].wb-autohidden[data-dock="bottom"] .dsh-wb-activity {
+  transform: translate(-50%, 22px) scale(.88);
+}
 .dsh-wb-root[data-mode="dock"].wb-autohidden .dsh-wb-sidebar {
   opacity: 0;
   visibility: hidden;
 }
+
+/* The hotspot is intentionally visible, so auto-hide never becomes a mystery
+   state. Its pill grows on hover and remains the reveal target. */
+.dsh-wb-autohide-hotspot::after {
+  content: '';
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: var(--dsw-alias-brand-primary, #4f6ef2);
+  box-shadow: 0 0 10px var(--dsw-alias-brand-primary, #4f6ef2);
+  opacity: .58;
+  transition: opacity .2s ease, transform .2s ease, width .2s ease, height .2s ease;
+}
+.dsh-wb-autohide-hotspot:hover::after { opacity: .95; }
+.dsh-wb-autohide-hotspot[data-dock="left"]::after,
+.dsh-wb-autohide-hotspot[data-dock="right"]::after {
+  width: 3px;
+  height: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.dsh-wb-autohide-hotspot[data-dock="left"]::after { left: 0; }
+.dsh-wb-autohide-hotspot[data-dock="right"]::after { right: 0; }
+.dsh-wb-autohide-hotspot[data-dock="left"]:hover::after { transform: translate(2px, -50%); }
+.dsh-wb-autohide-hotspot[data-dock="right"]:hover::after { transform: translate(-2px, -50%); }
+.dsh-wb-autohide-hotspot[data-dock="top"]::after,
+.dsh-wb-autohide-hotspot[data-dock="bottom"]::after {
+  width: 52px;
+  height: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.dsh-wb-autohide-hotspot[data-dock="top"]::after { top: 0; }
+.dsh-wb-autohide-hotspot[data-dock="bottom"]::after { bottom: 0; }
+.dsh-wb-autohide-hotspot[data-dock="top"]:hover::after { transform: translate(-50%, 2px); }
+.dsh-wb-autohide-hotspot[data-dock="bottom"]:hover::after { transform: translate(-50%, -2px); }
 `
 
 export function mountStyles(): () => void {

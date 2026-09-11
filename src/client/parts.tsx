@@ -31,7 +31,7 @@ import type { LayoutStore } from './layout.ts'
 import { reorderActivity } from './layout.ts'
 import { ContextMenu, type ContextMenuItem, type ContextMenuState } from './context-menu'
 import { SettingsWindow } from './SettingsWindow.tsx'
-import { isDockEnglish } from './internal/localization.ts'
+import { isDockEnglish, settingsLabels } from './internal/localization.ts'
 
 /** Sort helper shared by item lists. */
 function byOrder<T extends { order?: number }>(a: T, b: T): number {
@@ -42,28 +42,24 @@ function byOrder<T extends { order?: number }>(a: T, b: T): number {
 const DOCK_BAR_SELECTOR = '.dsh-wb-activity'
 
 /**
- * Publish `body[data-dock]` (the docked edge, consumed by the `#root` push
- * rules) and `--dock-size` (the space the app shell gives up).
- *
- * The reserve is measured from the floating bar itself, so it tracks the
- * number of entries and the active theme instead of a hardcoded width. It is
- * released while the bar is auto-hidden, because nothing is there to avoid.
+ * Publish the docked edge and the measured offset consumed only by the
+ * conversation turn rail. The page shell itself remains full width, so its
+ * scrollbar stays at the viewport edge.
  */
-function useDockReserve(
+function useDockRailOffset(
   rootRef: { current: HTMLDivElement | null },
   dock: DockPosition,
-  autoHidden: boolean,
   enabled: boolean,
 ): void {
   useEffect(() => {
     const body = document.body
     const publish = (): void => {
       const bar = rootRef.current?.querySelector<HTMLElement>(DOCK_BAR_SELECTOR) ?? null
-      const reserve = enabled && !autoHidden && bar !== null
-        ? dockReservePx(dock, bar.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight })
+      const offset = enabled && dock === 'right' && bar !== null
+        ? dockReservePx('right', bar.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight })
         : 0
-      if (reserve > 0) body.style.setProperty('--dock-size', `${reserve}px`)
-      else body.style.removeProperty('--dock-size')
+      if (offset > 0) body.style.setProperty('--dock-turn-rail-offset', `${offset}px`)
+      else body.style.removeProperty('--dock-turn-rail-offset')
     }
     body.setAttribute('data-dock', dock)
     publish()
@@ -75,9 +71,9 @@ function useDockReserve(
       observer?.disconnect()
       window.removeEventListener('resize', publish)
       body.removeAttribute('data-dock')
-      body.style.removeProperty('--dock-size')
+      body.style.removeProperty('--dock-turn-rail-offset')
     }
-  }, [rootRef, dock, autoHidden, enabled])
+  }, [rootRef, dock, enabled])
 }
 
 /**
@@ -191,6 +187,14 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const [autoHidden, setAutoHidden] = useState(false)
   const hideTimer = useRef<number | null>(null)
   useEffect(() => () => { if (hideTimer.current !== null) window.clearTimeout(hideTimer.current) }, [])
+  useEffect(() => {
+    if (autoHide) return
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current)
+      hideTimer.current = null
+    }
+    setAutoHidden(false)
+  }, [autoHide])
 
   const activityItems = useMemo(() => {
     // User drag order (activityOrder) wins; items not listed keep their
@@ -229,9 +233,8 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     ? undefined
     : panels.find((panel) => panel.id === activeActivity.paneId && panel.region === 'sideBar')
 
-  // Dock mode never pushes the DSH app shell: the floating bar overlays the
-  // page like the macOS Dock, so --dock-size stays unset (#root margins
-  // remain 0). The panel presentation that used the layout push was removed.
+  // Dock mode keeps the page shell native; only the conversation turn rail
+  // receives an optional right-side offset from useDockRailOffset.
 
   // Right-click menu: dock position + auto-hide toggle. Labels follow the
   // DSH UI language (see isEnglish). The absorb-native item was removed.
@@ -274,14 +277,15 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     hideTimer.current = window.setTimeout(() => setAutoHidden(true), 900)
   }
 
+  const effectiveAutoHidden = autoHide && autoHidden
   const rootClass = [
     'dsh-wb-root',
     collapsed ? 'wb-collapsed' : undefined,
-    autoHidden ? 'wb-autohidden' : undefined,
+    effectiveAutoHidden ? 'wb-autohidden' : undefined,
   ].filter(Boolean).join(' ')
 
-  // Publish the docked edge and reserve page space for the floating bar.
-  useDockReserve(rootRef, layout.dock, autoHidden, reserveSpace)
+  // Publish only the turn-rail offset; the page shell stays full width.
+  useDockRailOffset(rootRef, layout.dock, reserveSpace)
 
   return createElement(
     Fragment,
@@ -366,6 +370,8 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
     autoHide
       ? createElement('div', {
         className: 'dsh-wb-autohide-hotspot',
+         'aria-label': settingsLabels(isEnglish() ? 'en' : 'zh').autoHideHint,
+         title: settingsLabels(isEnglish() ? 'en' : 'zh').autoHideHint,
         'data-dock': layout.dock,
         onMouseEnter: reveal,
         onMouseLeave: scheduleHide,
