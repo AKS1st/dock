@@ -49,9 +49,42 @@ export const DOCK_POSITION_SETTING_ID = 'dock-base:position'
 export const DOCK_AUTO_HIDE_SETTING_ID = 'dock-base:auto-hide'
 export const DOCK_RESERVE_SETTING_ID = 'dock-base:reserve-space'
 export const HIDDEN_PLUGINS_SETTING_ID = 'dock-base:hidden-plugins'
+export const DOCK_HOVER_SCALE_SETTING_ID = 'dock-base:hover-scale'
+export const DOCK_NEAR_SCALE_SETTING_ID = 'dock-base:near-scale'
+
+/** Magnification applied to the icon under the cursor in dock mode. */
+export const DOCK_HOVER_SCALE_DEFAULT = 1.6
+/** Magnification applied to the two items flanking it. */
+export const DOCK_NEAR_SCALE_DEFAULT = 1.2
+
+/**
+ * User-adjustable slider bounds for the dock's fisheye. The lower bound is 1
+ * (hover never shrinks an icon) and the upper bounds stay below the point
+ * where a magnified icon would swallow its neighbours. The stylesheet keeps
+ * the same defaults as fallbacks, so it stays self-sufficient.
+ */
+export const DOCK_HOVER_SCALE_RANGE: DockScaleRange = { min: 1, max: 2.5, step: 0.05 }
+export const DOCK_NEAR_SCALE_RANGE: DockScaleRange = { min: 1, max: 2, step: 0.05 }
+
+/**
+ * Dock-owned activity entry: it opens the settings window instead of a
+ * side-bar pane (the dock cannot open itself *in* the dock), so it carries an
+ * empty `paneId`.
+ */
+export const DOCK_SETTINGS_ACTIVITY_ID = 'dock-base:settings'
+
+/** Tail order: the dock's own entry sits after every feature entry. */
+export const DOCK_SETTINGS_ACTIVITY_ORDER = 900
 
 /** Generic fallback icon owned by dock-base (internal shell detail). */
 export const GENERIC_PLUGIN_ICON = { path: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z', stroke: true } as const
+
+/**
+ * Dock's own icon: three entries resting on the dock bar. Distinct from the
+ * generic 2×2 fallback so the dock reads as itself both in the activity bar
+ * and in its own settings card.
+ */
+export const DOCK_BASE_ICON = { path: 'M5 8h4v4H5zM10 8h4v4h-4zM15 8h4v4h-4zM3 16h18', stroke: true } as const
 
 export const DOCK_POSITIONS = ['left', 'right', 'top', 'bottom'] as const
 export type DockPositionSettingValue = typeof DOCK_POSITIONS[number]
@@ -92,6 +125,49 @@ const ReserveSpaceSetting: SettingComponent<boolean> = ({ value, onChange, local
   }, createElement('span'))
 }
 const noopComponent = (() => null) as SettingComponent<unknown>
+
+/** A bounded numeric range rendered as a slider (min/max/step are the contract). */
+export interface DockScaleRange {
+  min: number
+  max: number
+  step: number
+}
+
+/** True only for a finite number inside the range (the setting's own guard). */
+export function inScaleRange(value: unknown, range: DockScaleRange): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= range.min && value <= range.max
+}
+
+/**
+ * Slider editor for one magnification factor. The knob never leaves the
+ * declared range, the step is the persisted precision (so 0.05 steps cannot
+ * accumulate float noise into the layout), and the live factor is printed
+ * beside it because a bare slider gives no readout.
+ */
+function scaleSlider(range: DockScaleRange, label: (locale: DockLocale) => string): SettingComponent<number> {
+  return ({ value, onChange, locale: activeLocale }) => {
+    const locale = activeLocale ?? getDockLocale()
+    const safe = inScaleRange(value, range) ? value : range.min
+    return createElement('div', { className: 'dsh-wb-setting-slider' },
+      createElement('input', {
+        type: 'range',
+        className: 'dsh-wb-setting-range',
+        min: range.min,
+        max: range.max,
+        step: range.step,
+        value: safe,
+        'aria-label': label(locale),
+        onChange: (event: { target: { value: string } }) => {
+          const next = Number.parseFloat(event.target.value)
+          // Snap to the step's precision so the persisted value stays exact.
+          onChange(Number.isFinite(next) ? Math.round(next * 100) / 100 : range.min)
+        },
+      }),
+      createElement('span', { className: 'dsh-wb-setting-scale' }, `${Number(safe.toFixed(2))}×`),
+    )
+  }
+}
+
 export const DOCK_POSITION_SETTING: SettingDefinition<'left' | 'right' | 'top' | 'bottom'> = {
   pluginId: DOCK_BASE_PLUGIN_ID, id: DOCK_POSITION_SETTING_ID,
   title: (locale) => settingsLabels(locale).dockPosition, order: 0,
@@ -108,8 +184,25 @@ export const DOCK_RESERVE_SETTING: SettingDefinition<boolean> = {
   description: (locale) => settingsLabels(locale).reserveSpaceHint, order: 2,
   defaultValue: true, component: ReserveSpaceSetting, validate: (value): value is boolean => typeof value === 'boolean',
 }
+const hoverScaleSlider = scaleSlider(DOCK_HOVER_SCALE_RANGE, (locale) => settingsLabels(locale).hoverScale)
+const nearScaleSlider = scaleSlider(DOCK_NEAR_SCALE_RANGE, (locale) => settingsLabels(locale).nearScale)
+export const DOCK_HOVER_SCALE_SETTING: SettingDefinition<number> = {
+  pluginId: DOCK_BASE_PLUGIN_ID, id: DOCK_HOVER_SCALE_SETTING_ID,
+  title: (locale) => settingsLabels(locale).hoverScale,
+  description: (locale) => settingsLabels(locale).hoverScaleHint, order: 3,
+  defaultValue: DOCK_HOVER_SCALE_DEFAULT, component: hoverScaleSlider,
+  validate: (value): value is number => inScaleRange(value, DOCK_HOVER_SCALE_RANGE),
+}
+export const DOCK_NEAR_SCALE_SETTING: SettingDefinition<number> = {
+  pluginId: DOCK_BASE_PLUGIN_ID, id: DOCK_NEAR_SCALE_SETTING_ID,
+  title: (locale) => settingsLabels(locale).nearScale,
+  description: (locale) => settingsLabels(locale).nearScaleHint, order: 4,
+  defaultValue: DOCK_NEAR_SCALE_DEFAULT, component: nearScaleSlider,
+  validate: (value): value is number => inScaleRange(value, DOCK_NEAR_SCALE_RANGE),
+}
+/** Internal bookkeeping row: never rendered (see getVisibleSettings), so it sorts last. */
 export const HIDDEN_PLUGINS_SETTING: SettingDefinition<string[]> = {
-  pluginId: DOCK_BASE_PLUGIN_ID, id: HIDDEN_PLUGINS_SETTING_ID, title: 'Hidden plugins', order: 3,
+  pluginId: DOCK_BASE_PLUGIN_ID, id: HIDDEN_PLUGINS_SETTING_ID, title: 'Hidden plugins', order: 90,
   defaultValue: [], component: noopComponent as SettingComponent<string[]>, validate: (value): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string'),
 }
 

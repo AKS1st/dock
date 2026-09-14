@@ -390,6 +390,22 @@ body[data-dock="right"] nav[style*="--turn-natural-height"] {
 .dsh-wb-setting-control { flex: none; max-width: 100%; }
 .dsh-wb-setting-checkbox { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .dsh-wb-setting-checkbox input { accent-color: var(--dsw-alias-border-accent, #4f6ef2); }
+/* Numeric slider row (dock magnification): a fixed-width track so the rows
+   line up, with the live value printed beside it — a bare slider has no
+   readout. tabular-nums keeps the number from jittering while dragging. */
+.dsh-wb-setting-slider { display: flex; align-items: center; gap: 10px; }
+.dsh-wb-setting-range {
+  width: 148px;
+  max-width: 100%;
+  accent-color: var(--dsw-alias-border-accent, #4f6ef2);
+  cursor: pointer;
+}
+.dsh-wb-setting-scale {
+  min-width: 46px;
+  text-align: right;
+  color: var(--dsw-alias-label-secondary, #656d76);
+  font-variant-numeric: tabular-nums;
+}
 /* Shared segmented control any feature plugin may use for its own setting. */
 .dsh-wb-setting-choices {
   display: grid;
@@ -442,7 +458,7 @@ body[data-dock="right"] nav[style*="--turn-natural-height"] {
 .dsh-wb-setting-description { margin-top: 3px; }
 .dsh-wb-position-switch { min-width: 260px; }
 .dsh-wb-position-option { padding: 6px 10px; font-size: 12px; }
-.dsh-wb-settings-close:focus-visible, .dsh-wb-settings-back:focus-visible, .dsh-wb-settings-tab:focus-visible, .dsh-wb-plugin-card:focus-visible, .dsh-wb-plugin-switch:focus-visible, .dsh-wb-plugin-open:focus-visible, .dsh-wb-setting-switch:focus-visible, .dsh-wb-setting-choice:focus-visible { outline: 2px solid var(--dsw-alias-border-accent, #4f6ef2); outline-offset: 2px; }
+.dsh-wb-settings-close:focus-visible, .dsh-wb-settings-back:focus-visible, .dsh-wb-settings-tab:focus-visible, .dsh-wb-plugin-card:focus-visible, .dsh-wb-plugin-switch:focus-visible, .dsh-wb-plugin-open:focus-visible, .dsh-wb-setting-switch:focus-visible, .dsh-wb-setting-choice:focus-visible, .dsh-wb-setting-range:focus-visible { outline: 2px solid var(--dsw-alias-border-accent, #4f6ef2); outline-offset: 2px; }
 @media (max-width: 520px) {
   .dsh-wb-settings { width: calc(100vw - 20px); max-height: calc(100vh - 20px); }
   .dsh-wb-settings-page { padding-left: 14px; padding-right: 14px; }
@@ -543,10 +559,30 @@ body[data-dock="right"] nav[style*="--turn-natural-height"] {
 /* Dock buttons: rounded capsule + magnification (fisheye) on hover. */
 .dsh-wb-root[data-mode="dock"] .dsh-wb-activity button {
   border-radius: 10px;
-  transition: transform 120ms ease;
+  transition: transform 140ms cubic-bezier(.2, 1.35, .35, 1);
 }
-.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.dock-hover { transform: scale(1.35); }
-.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.dock-near { transform: scale(1.08); }
+/* The hovered icon pops hard and its two neighbours follow; the raised
+   stacking order keeps the grown icon on top so a scaled neighbour can never
+   steal the hover (which would otherwise make the bar flicker). The factors
+   are user-tunable sliders in settings, published on the shell root as
+   --dock-icon-*-scale; the fallbacks are the setting defaults, so the
+   stylesheet stays correct on its own. */
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.dock-hover {
+  transform: scale(var(--dock-icon-hover-scale, 1.6));
+  position: relative;
+  z-index: 2;
+}
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.dock-near {
+  transform: scale(var(--dock-icon-near-scale, 1.2));
+  position: relative;
+  z-index: 1;
+}
+/* Dock mode keeps the native arrow over the bar: magnification is the whole
+   hover cue, so a pointer/grab hand would be a second, competing signal.
+   Only an in-flight reorder drag still shows the grabbing hand. */
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity,
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button { cursor: default; }
+.dsh-wb-root[data-mode="dock"] .dsh-wb-activity button.dragging { cursor: grabbing; }
 /* Dock mode hides the editor/panel area; the side bar becomes a floating
    panel next to the dock. */
 .dsh-wb-root[data-mode="dock"] .dsh-wb-main { display: none; }

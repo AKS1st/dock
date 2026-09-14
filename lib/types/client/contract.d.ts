@@ -100,7 +100,12 @@ export interface ActivityBarItemDefinition {
     icon: IconRef;
     /** Sort order (ascending); default 100. */
     order?: number;
-    /** The side bar pane to reveal when this item is activated. */
+    /**
+     * The side bar pane to reveal when this item is activated. An empty string
+     * marks a dialog entry — the shell's own settings item opens the settings
+     * window instead of a pane, so it is never a plugin "entry" to open and it
+     * never becomes the active layout activity.
+     */
     paneId: string;
 }
 /** One status-bar item (bottom strip, left/right groups in Phase 2). */

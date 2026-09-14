@@ -26,7 +26,8 @@ import type {
 } from './contract.ts'
 import { FLOATING_HEAD_HEIGHT } from './ui-constants.ts'
 import type { LayoutStore } from './layout.ts'
-import { DOCK_AUTO_HIDE_SETTING, DOCK_BASE_PLUGIN_ID, DOCK_POSITION_SETTING, DOCK_RESERVE_SETTING, GENERIC_PLUGIN_ICON, HIDDEN_PLUGINS_SETTING, HIDDEN_PLUGINS_SETTING_ID } from './settings.ts'
+import { DOCK_AUTO_HIDE_SETTING, DOCK_BASE_ICON, DOCK_BASE_PLUGIN_ID, DOCK_HOVER_SCALE_SETTING, DOCK_NEAR_SCALE_SETTING, DOCK_POSITION_SETTING, DOCK_RESERVE_SETTING, DOCK_SETTINGS_ACTIVITY_ID, DOCK_SETTINGS_ACTIVITY_ORDER, HIDDEN_PLUGINS_SETTING, HIDDEN_PLUGINS_SETTING_ID } from './settings.ts'
+import { getDockLocale, settingsLabels } from './internal/localization.ts'
 import type { PluginDefinition } from './contract.ts'
 import type { SettingDefinition, SettingsStore } from './settings.ts'
 
@@ -137,7 +138,7 @@ export function createWorkbenchService(store: LayoutStore, settings: SettingsSto
     id: DOCK_BASE_PLUGIN_ID,
     title: 'Dock',
     description: 'Workbench dock and settings',
-    icon: GENERIC_PLUGIN_ICON,
+    icon: DOCK_BASE_ICON,
     hasEntry: true,
     order: 0,
   })
@@ -153,6 +154,22 @@ export function createWorkbenchService(store: LayoutStore, settings: SettingsSto
     notify()
     return () => { if (activityItems.get(def.id) === def) { activityItems.delete(def.id); notify() } }
   }
+
+  // Dock's own entry in its own bar: activating it opens the settings window
+  // (the shell intercepts this id) instead of revealing a pane, which is why
+  // `paneId` is empty and the settings card offers no "Open" for it. Living in
+  // the activity registry is what makes the plugin visibility switch real —
+  // the "Dock" card hides exactly this entry — and it keeps the icon
+  // draggable/orderable alongside the feature entries. It sorts last so the
+  // dock's own control never displaces a feature icon.
+  const disposeDockSettingsEntry = registerActivityBarItem({
+    id: DOCK_SETTINGS_ACTIVITY_ID,
+    pluginId: DOCK_BASE_PLUGIN_ID,
+    title: settingsLabels(getDockLocale()).dockSettings,
+    icon: DOCK_BASE_ICON,
+    order: DOCK_SETTINGS_ACTIVITY_ORDER,
+    paneId: '',
+  })
 
   const registerPanel = (def: ViewDefinition & { region: 'sideBar' }): (() => void) => {
     if (panels.has(def.id)) throw new Error(`[dock] panel "${def.id}" already registered`)
@@ -444,6 +461,8 @@ export function createWorkbenchService(store: LayoutStore, settings: SettingsSto
   const disposeDockPositionSetting = settings.register(DOCK_POSITION_SETTING)
   const disposeDockAutoHideSetting = settings.register(DOCK_AUTO_HIDE_SETTING)
   const disposeDockReserveSetting = settings.register(DOCK_RESERVE_SETTING)
+  const disposeDockHoverScaleSetting = settings.register(DOCK_HOVER_SCALE_SETTING)
+  const disposeDockNearScaleSetting = settings.register(DOCK_NEAR_SCALE_SETTING)
   const disposeHiddenPluginsSetting = settings.register(HIDDEN_PLUGINS_SETTING)
   const syncLayoutToSettings = (): void => {
     const layout = store.getLayout()
@@ -451,6 +470,18 @@ export function createWorkbenchService(store: LayoutStore, settings: SettingsSto
     if (settings.get(DOCK_AUTO_HIDE_SETTING.id) !== layout.autoHide) settings.set(DOCK_AUTO_HIDE_SETTING.id, layout.autoHide)
   }
   syncLayoutToSettings()
+  // The two magnification factors describe one fisheye: a neighbour can never
+  // grow more than the icon under the cursor. Enforcing the invariant here —
+  // the owner of these settings — keeps both sliders freely adjustable in
+  // their own range without ever producing an inside-out dock. The write is
+  // idempotent, so the resulting notification settles immediately.
+  const syncMagnification = (): void => {
+    const hover = settings.get<number>(DOCK_HOVER_SCALE_SETTING.id)
+    const near = settings.get<number>(DOCK_NEAR_SCALE_SETTING.id)
+    if (hover === undefined || near === undefined || near <= hover) return
+    settings.set(DOCK_NEAR_SCALE_SETTING.id, hover)
+  }
+  syncMagnification()
   const stopLayoutSync = store.subscribe(syncLayoutToSettings)
   const stopSettingSync = settings.subscribe(() => {
     const dock = settings.get<'left' | 'right' | 'top' | 'bottom'>(DOCK_POSITION_SETTING.id)
@@ -459,6 +490,7 @@ export function createWorkbenchService(store: LayoutStore, settings: SettingsSto
     if (dock !== undefined && dock !== store.getLayout().dock) patch.dock = dock
     if (autoHide !== undefined && autoHide !== store.getLayout().autoHide) patch.autoHide = autoHide
     if (Object.keys(patch).length > 0) store.update(patch)
+    syncMagnification()
   })
   let disposed = false
   const dispose = (): void => {
@@ -466,8 +498,11 @@ export function createWorkbenchService(store: LayoutStore, settings: SettingsSto
     disposed = true
     stopLayoutSync()
     stopSettingSync()
+    disposeDockSettingsEntry()
     disposeDockPlugin()
     disposeHiddenPluginsSetting()
+    disposeDockNearScaleSetting()
+    disposeDockHoverScaleSetting()
     disposeDockReserveSetting()
     disposeDockAutoHideSetting()
     disposeDockPositionSetting()

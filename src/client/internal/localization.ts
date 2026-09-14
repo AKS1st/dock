@@ -24,6 +24,11 @@ export interface SettingsLabels {
   other: string
   showPlugin: string
   openPlugin: string
+  dockSettings: string
+  hoverScale: string
+  hoverScaleHint: string
+  nearScale: string
+  nearScaleHint: string
   dockPosition: string
   autoHide: string
   autoHideHint: string
@@ -41,6 +46,9 @@ const LABELS: Record<DockLocale, SettingsLabels> = {
   zh: {
     settings: '设置', close: '关闭设置', back: '返回设置', empty: '暂无可配置的设置',
     general: '通用设置', plugins: '插件', entry: '入口', other: '其它', showPlugin: '显示', openPlugin: '打开',
+    dockSettings: 'Dock 设置',
+    hoverScale: '悬停图标放大', hoverScaleHint: '鼠标悬停时该图标的放大倍数（1.0–2.5×）。',
+    nearScale: '相邻图标放大', nearScaleHint: '悬停图标两侧相邻项的放大倍数，不会超过悬停倍数（1.0–2.0×）。',
     dockPosition: 'Dock 位置', autoHide: '自动隐藏', autoHideHint: 'Dock 已隐藏，移到边缘可展开', left: '左侧', right: '右侧', top: '顶部', bottom: '底部',
     reserveSpace: '为 dock 预留空间',
     reserveSpaceHint: '在停靠侧空出一条边距，避免 dock 栏遮挡页面边缘的导航（例如会话进度导航栏）。',
@@ -49,6 +57,9 @@ const LABELS: Record<DockLocale, SettingsLabels> = {
   en: {
     settings: 'Settings', close: 'Close settings', back: 'Back to settings', empty: 'No configurable settings',
     general: 'General settings', plugins: 'Plugins', entry: 'Entry', other: 'Other', showPlugin: 'Show', openPlugin: 'Open',
+    dockSettings: 'Dock settings',
+    hoverScale: 'Hovered icon magnification', hoverScaleHint: 'How much the hovered dock icon grows (1.0–2.5×).',
+    nearScale: 'Neighbour magnification', nearScaleHint: 'How much the icons next to the hovered one grow; never more than the hovered icon (1.0–2.0×).',
     dockPosition: 'Dock position', autoHide: 'Auto-hide', autoHideHint: 'Dock hidden; move to the edge to reveal', left: 'Left', right: 'Right', top: 'Top', bottom: 'Bottom',
     reserveSpace: 'Reserve space for the dock',
     reserveSpaceHint: 'Keeps a gutter on the docked edge so the dock bar never covers edge-hugging page chrome such as the conversation turn rail.',

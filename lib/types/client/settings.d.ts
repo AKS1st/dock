@@ -42,15 +42,57 @@ export declare const DOCK_POSITION_SETTING_ID = "dock-base:position";
 export declare const DOCK_AUTO_HIDE_SETTING_ID = "dock-base:auto-hide";
 export declare const DOCK_RESERVE_SETTING_ID = "dock-base:reserve-space";
 export declare const HIDDEN_PLUGINS_SETTING_ID = "dock-base:hidden-plugins";
+export declare const DOCK_HOVER_SCALE_SETTING_ID = "dock-base:hover-scale";
+export declare const DOCK_NEAR_SCALE_SETTING_ID = "dock-base:near-scale";
+/** Magnification applied to the icon under the cursor in dock mode. */
+export declare const DOCK_HOVER_SCALE_DEFAULT = 1.6;
+/** Magnification applied to the two items flanking it. */
+export declare const DOCK_NEAR_SCALE_DEFAULT = 1.2;
+/**
+ * User-adjustable slider bounds for the dock's fisheye. The lower bound is 1
+ * (hover never shrinks an icon) and the upper bounds stay below the point
+ * where a magnified icon would swallow its neighbours. The stylesheet keeps
+ * the same defaults as fallbacks, so it stays self-sufficient.
+ */
+export declare const DOCK_HOVER_SCALE_RANGE: DockScaleRange;
+export declare const DOCK_NEAR_SCALE_RANGE: DockScaleRange;
+/**
+ * Dock-owned activity entry: it opens the settings window instead of a
+ * side-bar pane (the dock cannot open itself *in* the dock), so it carries an
+ * empty `paneId`.
+ */
+export declare const DOCK_SETTINGS_ACTIVITY_ID = "dock-base:settings";
+/** Tail order: the dock's own entry sits after every feature entry. */
+export declare const DOCK_SETTINGS_ACTIVITY_ORDER = 900;
 /** Generic fallback icon owned by dock-base (internal shell detail). */
 export declare const GENERIC_PLUGIN_ICON: {
     readonly path: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z";
     readonly stroke: true;
 };
+/**
+ * Dock's own icon: three entries resting on the dock bar. Distinct from the
+ * generic 2×2 fallback so the dock reads as itself both in the activity bar
+ * and in its own settings card.
+ */
+export declare const DOCK_BASE_ICON: {
+    readonly path: "M5 8h4v4H5zM10 8h4v4h-4zM15 8h4v4h-4zM3 16h18";
+    readonly stroke: true;
+};
 export declare const DOCK_POSITIONS: readonly ["left", "right", "top", "bottom"];
 export type DockPositionSettingValue = typeof DOCK_POSITIONS[number];
+/** A bounded numeric range rendered as a slider (min/max/step are the contract). */
+export interface DockScaleRange {
+    min: number;
+    max: number;
+    step: number;
+}
+/** True only for a finite number inside the range (the setting's own guard). */
+export declare function inScaleRange(value: unknown, range: DockScaleRange): value is number;
 export declare const DOCK_POSITION_SETTING: SettingDefinition<'left' | 'right' | 'top' | 'bottom'>;
 export declare const DOCK_AUTO_HIDE_SETTING: SettingDefinition<'off' | 'edge'>;
 export declare const DOCK_RESERVE_SETTING: SettingDefinition<boolean>;
+export declare const DOCK_HOVER_SCALE_SETTING: SettingDefinition<number>;
+export declare const DOCK_NEAR_SCALE_SETTING: SettingDefinition<number>;
+/** Internal bookkeeping row: never rendered (see getVisibleSettings), so it sorts last. */
 export declare const HIDDEN_PLUGINS_SETTING: SettingDefinition<string[]>;
 export declare function createSettingsStore(storage?: SettingsStorage): SettingsStore;

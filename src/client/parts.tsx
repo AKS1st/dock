@@ -25,7 +25,7 @@ import type {
   WorkbenchService,
 } from './contract.ts'
 import { FLOATING_MIN_HEIGHT, FLOATING_MIN_WIDTH } from './ui-constants.ts'
-import { DOCK_RESERVE_SETTING_ID } from './settings.ts'
+import { DOCK_HOVER_SCALE_DEFAULT, DOCK_HOVER_SCALE_SETTING_ID, DOCK_NEAR_SCALE_DEFAULT, DOCK_NEAR_SCALE_SETTING_ID, DOCK_RESERVE_SETTING_ID, DOCK_SETTINGS_ACTIVITY_ID } from './settings.ts'
 import { dockReservePx } from './internal/dock-space.ts'
 import type { LayoutStore } from './layout.ts'
 import { reorderActivity } from './layout.ts'
@@ -74,6 +74,28 @@ function useDockRailOffset(
       body.style.removeProperty('--dock-turn-rail-offset')
     }
   }, [rootRef, dock, enabled])
+}
+
+/**
+ * Publish the two magnification factors as custom properties on the shell
+ * root. The stylesheet stays static — only the values move — so tuning the
+ * sliders in settings never re-injects CSS.
+ */
+function useDockMagnification(
+  rootRef: { current: HTMLDivElement | null },
+  hoverScale: number,
+  nearScale: number,
+): void {
+  useEffect(() => {
+    const root = rootRef.current
+    if (root === null) return
+    root.style.setProperty('--dock-icon-hover-scale', String(hoverScale))
+    root.style.setProperty('--dock-icon-near-scale', String(nearScale))
+    return () => {
+      root.style.removeProperty('--dock-icon-hover-scale')
+      root.style.removeProperty('--dock-icon-near-scale')
+    }
+  }, [rootRef, hoverScale, nearScale])
 }
 
 /**
@@ -179,6 +201,15 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
   const reserveSpace = useSyncExternalStore(
     service.onDidChangeSetting,
     () => service.getSetting<boolean>(DOCK_RESERVE_SETTING_ID) !== false,
+  )
+  // Slider-tunable magnification; the defaults back the stylesheet fallbacks.
+  const hoverScale = useSyncExternalStore(
+    service.onDidChangeSetting,
+    () => service.getSetting<number>(DOCK_HOVER_SCALE_SETTING_ID) ?? DOCK_HOVER_SCALE_DEFAULT,
+  )
+  const nearScale = useSyncExternalStore(
+    service.onDidChangeSetting,
+    () => service.getSetting<number>(DOCK_NEAR_SCALE_SETTING_ID) ?? DOCK_NEAR_SCALE_DEFAULT,
   )
   const rootRef = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
@@ -286,6 +317,7 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
 
   // Publish only the turn-rail offset; the page shell stays full width.
   useDockRailOffset(rootRef, layout.dock, reserveSpace)
+  useDockMagnification(rootRef, hoverScale, nearScale)
 
   return createElement(
     Fragment,
@@ -305,7 +337,14 @@ export function WorkbenchRoot(props: RootProps): ReactNode {
       items: activityItems,
       activeId: layout.activity,
       dockMode: true,
-      onActivate: (id) => {
+      onActivate: (id, trigger) => {
+        // The dock's own entry is the settings window, not a side-bar pane:
+        // it must never become `layout.activity` (no panel backs it).
+        if (id === DOCK_SETTINGS_ACTIVITY_ID) {
+          settingsRestoreRef.current = trigger
+          setSettingsOpen(true)
+          return
+        }
         // Clicking the active item again collapses the side bar (VSCode toggle).
         store.update(layout.activity === id ? { activity: null } : { activity: id, sideBarOpen: true })
       },
@@ -529,7 +568,8 @@ function ActivityBar(props: {
   items: ActivityBarItemDefinition[]
   activeId: string | null
   dockMode: boolean
-  onActivate: (id: string) => void
+  /** `trigger` is the activated button, so the shell can restore focus to it. */
+  onActivate: (id: string, trigger: HTMLElement | null) => void
   onContextMenu: (x: number, y: number, target: EventTarget | null) => void
   onReorder: (draggedId: string, targetId: string) => void
 }): ReactNode {
@@ -558,7 +598,7 @@ function ActivityBar(props: {
     ].filter(Boolean).join(' ') || undefined,
     title: item.title,
     draggable: true,
-    onClick: () => onActivate(item.id),
+    onClick: (event: MouseEvent) => onActivate(item.id, event.currentTarget instanceof HTMLElement ? event.currentTarget : null),
     onMouseEnter: () => { if (dockMode) setHoverIndex(index) },
     onMouseLeave: () => { if (dockMode) setHoverIndex(null) },
     onDragStart: (event: DragEvent) => {

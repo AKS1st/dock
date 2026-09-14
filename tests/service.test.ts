@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createLayoutStore } from '../src/client/layout.ts'
-import { createSettingsStore, DOCK_POSITION_SETTING, type SettingsStorage } from '../src/client/settings.ts'
+import { createSettingsStore, DOCK_BASE_ICON, DOCK_HOVER_SCALE_DEFAULT, DOCK_NEAR_SCALE_DEFAULT, DOCK_POSITION_SETTING, DOCK_SETTINGS_ACTIVITY_ID, DOCK_SETTINGS_ACTIVITY_ORDER, type SettingsStorage } from '../src/client/settings.ts'
 import { createWorkbenchService } from '../src/client/service.ts'
 
 function storage(): SettingsStorage {
@@ -18,6 +18,20 @@ test('dock-base is registered and service disposal removes its registry row', ()
   assert.ok(service.getPlugins().some((plugin) => plugin.id === 'dock-base'))
   service.dispose()
   assert.equal(service.getPlugin('dock-base'), undefined)
+})
+
+test('dock registers its own settings entry and disposal removes it', () => {
+  const service = createWorkbenchService(createLayoutStore(storage()), createSettingsStore(storage()))
+  const entry = service.getActivityItem(DOCK_SETTINGS_ACTIVITY_ID)
+  assert.equal(entry?.pluginId, 'dock-base')
+  // No pane: the shell opens the settings window instead of a side bar.
+  assert.equal(entry?.paneId, '')
+  assert.equal(entry?.order, DOCK_SETTINGS_ACTIVITY_ORDER)
+  assert.equal(entry?.icon, DOCK_BASE_ICON)
+  assert.deepEqual(service.getActivityItems().map((item) => item.id), [DOCK_SETTINGS_ACTIVITY_ID])
+  service.dispose()
+  assert.equal(service.getActivityItem(DOCK_SETTINGS_ACTIVITY_ID), undefined)
+  service.dispose()
 })
 
 test('plugin registry rejects duplicate ids and disposer unregisters', () => {
@@ -43,6 +57,26 @@ test('plugin changes notify subscribers and scoped settings remain discoverable'
   assert.equal(changes, 3)
   stop()
   service.dispose()
+})
+
+test('a neighbour never outgrows the hovered icon, and both are tunable', () => {
+  const service = createWorkbenchService(createLayoutStore(storage()), createSettingsStore(storage()))
+  assert.equal(service.getSetting('dock-base:hover-scale'), DOCK_HOVER_SCALE_DEFAULT)
+  assert.equal(service.getSetting('dock-base:near-scale'), DOCK_NEAR_SCALE_DEFAULT)
+
+  // Both factors move independently inside their own range.
+  service.setSetting('dock-base:hover-scale', 2.2)
+  service.setSetting('dock-base:near-scale', 1.5)
+  assert.equal(service.getSetting('dock-base:hover-scale'), 2.2)
+  assert.equal(service.getSetting('dock-base:near-scale'), 1.5)
+
+  // Lowering the hover factor below the neighbour drags the neighbour with it.
+  service.setSetting('dock-base:hover-scale', 1.1)
+  assert.equal(service.getSetting('dock-base:near-scale'), 1.1)
+
+  service.dispose()
+  assert.equal(service.getSetting('dock-base:hover-scale'), undefined)
+  assert.equal(service.getSetting('dock-base:near-scale'), undefined)
 })
 
 test('dock settings adapt bidirectionally and hidden plugin ids persist', () => {

@@ -28,9 +28,14 @@ export function hasPluginVisibilitySwitch(plugin: PluginDefinition): boolean {
   return plugin.hasEntry
 }
 
-/** The dock entry this plugin owns, matched through the activity item's pluginId. */
+/**
+ * The side-bar entry this plugin owns, matched through the activity item's
+ * pluginId. A pane-less item is not an entry: the dock's own settings item
+ * opens the settings dialog, so there is nothing to open in the side bar and
+ * the "Open" action must not be offered for it.
+ */
 export function pluginEntryItem(service: WorkbenchService, pluginId: string): ActivityBarItemDefinition | undefined {
-  return service.getActivityItems().find((item) => (item.pluginId ?? item.id) === pluginId)
+  return service.getActivityItems().find((item) => (item.pluginId ?? item.id) === pluginId && item.paneId !== '')
 }
 
 /**

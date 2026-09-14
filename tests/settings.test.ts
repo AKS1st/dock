@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createSettingsStore, DOCK_AUTO_HIDE_SETTING, DOCK_POSITIONS, DOCK_POSITION_SETTING, DOCK_RESERVE_SETTING, type SettingDefinition, type SettingsStorage } from '../src/client/settings.ts'
+import { createSettingsStore, DOCK_AUTO_HIDE_SETTING, DOCK_HOVER_SCALE_DEFAULT, DOCK_HOVER_SCALE_RANGE, DOCK_HOVER_SCALE_SETTING, DOCK_HOVER_SCALE_SETTING_ID, DOCK_NEAR_SCALE_DEFAULT, DOCK_NEAR_SCALE_RANGE, DOCK_NEAR_SCALE_SETTING, DOCK_NEAR_SCALE_SETTING_ID, DOCK_POSITIONS, DOCK_POSITION_SETTING, DOCK_RESERVE_SETTING, type SettingDefinition, type SettingsStorage } from '../src/client/settings.ts'
 import { focusTrapTarget, isMenuActivationKey, menuItemRole } from '../src/client/ui-helpers.ts'
 import { canOpenPluginSettings, getGeneralSettings, getVisibleSettings, hasPluginVisibilitySwitch, openPluginEntry, pluginEntryItem, pluginIcon, pluginsForTab, settingsPageClassName, settingsTabClassName, stopPluginSwitchKeydown } from '../src/client/internal/settings-window.ts'
 import { dockReservePx } from '../src/client/internal/dock-space.ts'
@@ -200,6 +200,22 @@ test('plugin entry helpers map a plugin to its activity item and open it', () =>
   assert.deepEqual(calls, [{ hidden: [] }, { hidden: [], activity: 'files', sideBarOpen: true }])
 })
 
+test("dock's own pane-less settings entry is never an entry to open", () => {
+  const calls: string[] = []
+  const service = {
+    getActivityItems: () => [
+      { id: 'dock-base:settings', pluginId: 'dock-base', title: 'Dock settings', icon: '', order: 900, paneId: '' },
+    ],
+    getHiddenPluginIds: () => [],
+    setPluginHidden: () => { calls.push('unhide') },
+    updateLayout: () => { calls.push('activate') },
+  } as unknown as WorkbenchService
+
+  assert.equal(pluginEntryItem(service, 'dock-base'), undefined)
+  assert.equal(openPluginEntry(service, 'dock-base'), false)
+  assert.deepEqual(calls, [])
+})
+
 test('plugin switch activation keys stop at the switch instead of the card', () => {
   for (const key of ['Enter', ' ']) {
     let stopped = 0
@@ -238,6 +254,38 @@ test('the reserve setting is a dock-owned boolean defaulting to on', () => {
   assert.equal(DOCK_RESERVE_SETTING.validate('on'), false)
   assert.equal(resolveSettingText(DOCK_RESERVE_SETTING.title, 'zh'), '为 dock 预留空间')
   assert.equal(resolveSettingText(DOCK_RESERVE_SETTING.title, 'en'), 'Reserve space for the dock')
+})
+
+test('the magnification settings are bounded sliders with dock defaults', () => {
+  assert.equal(DOCK_HOVER_SCALE_SETTING.pluginId, DOCK_BASE_PLUGIN_ID)
+  assert.equal(DOCK_HOVER_SCALE_SETTING.defaultValue, DOCK_HOVER_SCALE_DEFAULT)
+  assert.equal(DOCK_NEAR_SCALE_SETTING.defaultValue, DOCK_NEAR_SCALE_DEFAULT)
+  // The range is the contract: the slider cannot leave it, so the guard is it.
+  for (const value of [DOCK_HOVER_SCALE_RANGE.min, 1.55, DOCK_HOVER_SCALE_DEFAULT, DOCK_HOVER_SCALE_RANGE.max]) {
+    assert.equal(DOCK_HOVER_SCALE_SETTING.validate(value), true)
+  }
+  for (const value of [0.9, DOCK_HOVER_SCALE_RANGE.max + 0.01, Number.NaN, Number.POSITIVE_INFINITY, '1.6', null, undefined]) {
+    assert.equal(DOCK_HOVER_SCALE_SETTING.validate(value), false)
+  }
+  assert.equal(DOCK_NEAR_SCALE_SETTING.validate(DOCK_NEAR_SCALE_RANGE.max), true)
+  assert.equal(DOCK_NEAR_SCALE_SETTING.validate(DOCK_NEAR_SCALE_RANGE.max + 0.05), false)
+  assert.equal(DOCK_NEAR_SCALE_RANGE.max <= DOCK_HOVER_SCALE_RANGE.max, true)
+  assert.equal(resolveSettingText(DOCK_HOVER_SCALE_SETTING.title, 'zh'), '悬停图标放大')
+  assert.equal(resolveSettingText(DOCK_HOVER_SCALE_SETTING.title, 'en'), 'Hovered icon magnification')
+  assert.equal(resolveSettingText(DOCK_NEAR_SCALE_SETTING.title, 'zh'), '相邻图标放大')
+  assert.equal(resolveSettingText(DOCK_NEAR_SCALE_SETTING.title, 'en'), 'Neighbour magnification')
+})
+
+test('an out-of-range persisted magnification falls back to its default', () => {
+  const backing = storage(JSON.stringify({ [DOCK_HOVER_SCALE_SETTING_ID]: 9, [DOCK_NEAR_SCALE_SETTING_ID]: 0.2 }))
+  const store = createSettingsStore(backing)
+  store.register(DOCK_HOVER_SCALE_SETTING)
+  store.register(DOCK_NEAR_SCALE_SETTING)
+  assert.equal(store.get(DOCK_HOVER_SCALE_SETTING_ID), DOCK_HOVER_SCALE_DEFAULT)
+  assert.equal(store.get(DOCK_NEAR_SCALE_SETTING_ID), DOCK_NEAR_SCALE_DEFAULT)
+  // A hand-edited value outside the range is also rejected on write.
+  store.set(DOCK_HOVER_SCALE_SETTING_ID, 4)
+  assert.equal(store.get(DOCK_HOVER_SCALE_SETTING_ID), DOCK_HOVER_SCALE_DEFAULT)
 })
 
 test('setting subscribers observe writes and can unsubscribe', () => {

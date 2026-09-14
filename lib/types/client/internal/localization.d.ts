@@ -13,6 +13,11 @@ export interface SettingsLabels {
     other: string;
     showPlugin: string;
     openPlugin: string;
+    dockSettings: string;
+    hoverScale: string;
+    hoverScaleHint: string;
+    nearScale: string;
+    nearScaleHint: string;
     dockPosition: string;
     autoHide: string;
     autoHideHint: string;
