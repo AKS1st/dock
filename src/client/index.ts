@@ -14,8 +14,12 @@ import { createWorkbenchService } from './service.ts'
 import { WorkbenchRoot } from './parts.tsx'
 import { mountStyles } from './styles.ts'
 
-/** No runtime services required: the base only needs the cordis context. */
-export const inject: string[] = []
+/**
+ * The shell resolves the active Session from `uiSession`, whose scope adapter
+ * is the view owner's selection source; waiting for it keeps every view's
+ * sessionId correct on its first render instead of racing boot order.
+ */
+export const inject: string[] = ['uiSession']
 
 /** Client plugin body. */
 export function apply(ctx: WorkbenchContext): void {

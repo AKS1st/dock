@@ -676,17 +676,25 @@ function StatusBar(props: { items: ReturnType<WorkbenchService['getStatusItems']
 }
 
 /**
- * Live active-session id: subscribes to the sessions list (same pattern as
- * the community sidebar), so switching the workspace/conversation re-renders
- * and every view keyed on sessionId reloads against the new working
- * directory. Returns undefined when the sessions service is absent.
+ * Live active-session id: subscribes to the uiSession scope adapter's current
+ * binding, so switching the workspace/conversation re-renders and every view
+ * keyed on sessionId reloads against the new working directory. Returns
+ * undefined when the uiSession service is absent or no Session is selected.
+ *
+ * The sessions service no longer owns selection: its list snapshot carried a
+ * `current` field through 0.1.x and the 0.2 client dropped it ("navigation
+ * belongs to view owners"). The view owner's binding is `uiSession.adapter.current`,
+ * whose snapshot exposes the scope identity as `key`.
  */
 function useSessionId(ctx: WorkbenchContext): string | undefined {
-  const sessions = ctx.get<{
-    list?: { subscribe(cb: () => void): () => void; getSnapshot(): { current?: string } }
-  }>('sessions')
+  const uiSession = ctx.get<{
+    adapter?: {
+      current?: { subscribe(cb: () => void): () => void; getSnapshot(): { key?: string } }
+    }
+  }>('uiSession')
+  const current = uiSession?.adapter?.current
   return useSyncExternalStore(
-    (cb) => sessions?.list?.subscribe(cb) ?? (() => {}),
-    () => sessions?.list?.getSnapshot().current,
+    (cb) => current?.subscribe(cb) ?? (() => {}),
+    () => current?.getSnapshot().key,
   )
 }
