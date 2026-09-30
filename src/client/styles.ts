@@ -88,8 +88,9 @@ const CSS = `
 .dsh-wb-resize-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: nwse-resize; }
 .dsh-wb-resize-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
 
-/* Shift only Harness's turn rail. Its inline frame variable is the stable
-   marker of the TurnNavigator; the rest of the page keeps its native width. */
+/* Shift only Harness's turn rail; keep the previous inline marker compatible
+   with supported Harness builds that predate the stable data attribute. */
+body[data-dock="right"] [data-turn-navigator],
 body[data-dock="right"] nav[style*="--turn-natural-height"] {
   right: calc(
     12px + var(--dock-turn-rail-offset, 0px)

@@ -236,11 +236,11 @@ test('settings navigation helpers preserve transition classes and active state',
 
 test('dock reserve measures the pushed space from the bar rect', () => {
   const viewport = { width: 1000, height: 800 }
-  // Right-docked bar at x=940 (60px wide) plus the 12px gap.
-  assert.equal(dockReservePx('right', { left: 940, right: 1000, top: 0, bottom: 0 }, viewport), 72)
-  assert.equal(dockReservePx('left', { left: 0, right: 60, top: 0, bottom: 0 }, viewport), 72)
-  assert.equal(dockReservePx('bottom', { left: 0, right: 0, top: 748, bottom: 800 }, viewport), 64)
-  assert.equal(dockReservePx('top', { left: 0, right: 0, top: 0, bottom: 44 }, viewport), 56)
+  // Right-docked bar at x=940 (60px wide) plus the 24px visual gap.
+  assert.equal(dockReservePx('right', { left: 940, right: 1000, top: 0, bottom: 0 }, viewport), 84)
+  assert.equal(dockReservePx('left', { left: 0, right: 60, top: 0, bottom: 0 }, viewport), 84)
+  assert.equal(dockReservePx('bottom', { left: 0, right: 0, top: 748, bottom: 800 }, viewport), 76)
+  assert.equal(dockReservePx('top', { left: 0, right: 0, top: 0, bottom: 44 }, viewport), 68)
   // A custom gap is honoured, and a missing measurement cannot reserve space.
   assert.equal(dockReservePx('right', { left: 940, right: 1000, top: 0, bottom: 0 }, viewport, 0), 60)
   assert.equal(dockReservePx('right', { left: Number.NaN, right: 0, top: 0, bottom: 0 }, viewport), 0)

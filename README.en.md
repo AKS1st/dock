@@ -65,7 +65,7 @@ Dock's own options live under "General settings": position, auto-hide, "Reserve 
 
 - **Dock position**: a four-way segmented switch (left/right/top/bottom) that shares one state with the right-click menu.
 - **Auto-hide**: the bar slides, scales, and fades out when the mouse leaves; a visible edge marker remains so users can discover it and move to the edge to expand it. Disabling auto-hide immediately forces a hidden dock back into view.
-- **Reserve space for the dock** (on by default): only the conversation turn rail is moved left by the measured dock width plus a 12px gap when the dock is on the right; page width and scrollbar position remain unchanged. The offset is recomputed when the bar resizes, the window resizes, or the switch changes, and drops to zero when disabled.
+- **Reserve space for the dock** (on by default): only the conversation turn rail is moved left by the measured dock width plus a 24px gap when the dock is on the right; page width and scrollbar position remain unchanged. The offset is recomputed when the bar resizes, the window resizes, or the switch changes, and drops to zero when disabled.
 - **Hovered icon / neighbour magnification** (1.6× / 1.2× by default): the fisheye pop in dock mode, each tunable on its own slider between 1.0–2.5× and 1.0–2.0× in 0.05 steps, applied live while dragging; the neighbour factor never exceeds the hovered one.
 - **Dock icon**: the dock glyph at the end of the bar (three squares on a bar) opens this settings window. Like any other entry it can be hidden under "Plugins → Entry → Dock"; the dock bar's right-click menu still opens settings afterwards.
 

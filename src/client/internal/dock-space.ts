@@ -3,9 +3,9 @@ import type { DockPosition } from '../contract.ts'
 /**
  * Visual gap kept between the floating dock bar and the conversation turn rail.
  * The bar is fixed 12px from the docked edge, so the offset is the bar's own
- * size plus the same gap.
+ * size plus that edge inset and this gap.
  */
-export const DOCK_RESERVE_GAP = 12
+export const DOCK_RESERVE_GAP = 24
 
 export interface DockBarRect {
   left: number
