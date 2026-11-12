@@ -636,6 +636,19 @@ body[data-dock="right"] nav[style*="--turn-natural-height"] {
 .dsh-wb-autohide-hotspot[data-dock="top"] { top: 0; left: 0; right: 0; height: 4px; }
 .dsh-wb-autohide-hotspot[data-dock="bottom"] { bottom: 0; left: 0; right: 0; height: 4px; }
 
+/* The Windows desktop reserves the top strip for dragging the window, and
+   Electron composes app-regions from geometry rather than hit testing, so a
+   hotspot drawn inside that strip never receives pointerenter and auto-hide
+   can never be revealed — the state reported in dock#2, where the user is then
+   locked out of the settings that would turn auto-hide off again. Start the
+   top strip below the frame's top clearance; its ::after pill follows, because
+   it is positioned against the hotspot. The app-region override is
+   belt-and-braces for a host that keeps the strip over the hotspot anyway. */
+[data-windows-titlebar] .dsh-wb-autohide-hotspot[data-dock="top"] {
+  top: var(--dsh-frame-top-clearance, 40px);
+  -webkit-app-region: no-drag;
+}
+
 /* Auto-hide keeps a small edge marker visible, then reveals the capsule with
    a short slide/scale animation. The sidebar still disappears completely
    because it is not the discoverability affordance. */
