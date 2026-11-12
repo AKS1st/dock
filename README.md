@@ -39,6 +39,14 @@ dock 基座只提供工作台外壳，不附带文件浏览、编辑等具体能
 
 只装 `dock` 本身也完全没问题——它就是一个干净的工作台外壳，等你随时往里加零件。
 
+## 社区插件（第三方，本仓库不维护）
+
+以下是社区基于 dock 契约开发的插件。列出来不代表背书，安装前请自行审阅其代码：
+
+- **[dock-flash](https://github.com/tcgbp/dock-flash)** — 基于 dock 的快捷按钮小插件（作者 [tcgbp](https://github.com/tcgbp)）。
+
+想把自己的 dock 插件加进这个列表，欢迎开 issue 或直接提 PR。
+
 ## 设置 API
 
 从 0.2.0 起，工作台公开设置注册 API。功能插件通过 `ctx.workbench.registerSetting` 注册设置项；返回的反注册函数应交给 `ctx.effect`，这样插件停用或热更新时会自动移除注册。设置窗口会按 `order`（再按 `id`）排序，编辑器只接收当前值、`onChange` 回调和当前语言，并在写入前执行 `validate`：

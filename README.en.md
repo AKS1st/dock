@@ -39,6 +39,14 @@ The dock base only provides the workbench shell; concrete capabilities like file
 
 Installing `dock` alone is perfectly fine too — it is a clean workbench shell, ready for you to add components any time.
 
+## Community plugins (third-party — not maintained here)
+
+Plugins the community builds on the dock contract. Listing one is not an endorsement; review its code before installing.
+
+- **[dock-flash](https://github.com/tcgbp/dock-flash)** — a quick-button launcher built on dock (by [tcgbp](https://github.com/tcgbp)).
+
+To add yours here, open an issue or send a PR.
+
 ## Settings API
 
 Since 0.2.0, the workbench exposes a public settings-registration API. Feature plugins call `ctx.workbench.registerSetting`; pass the disposer to `ctx.effect` so the registration is removed automatically when the plugin is disabled or hot-reloaded. The settings window sorts entries by `order` (then `id`), and each editor receives only its current value, an `onChange` callback and the active locale. Values are validated before they are written:
