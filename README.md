@@ -27,6 +27,8 @@ dock 基座只提供工作台外壳，不附带文件浏览、编辑等具体能
 3. **[dock-images](https://github.com/AKS1st/dock-images)** — 图片查看器。支持 PNG/JPEG/GIF/WebP/BMP/SVG/ICO/AVIF，SVG 安全渲染。*需要看图时再装它（需要 dock-files）。*
 4. **[dock-markdown](https://github.com/AKS1st/dock-markdown)** — Markdown 查看器。md/markdown/mdx 渲染、文档大纲、相对路径资源解析、一键切换编辑。*经常读文档/README 时再装它（需要 dock-files 与 dock-editor）。*
 5. **[dock-git](https://github.com/AKS1st/dock-git)** — Git 历史可视化。泳道式提交图、分支/标签管理、暂存/提交/推送、远端操作。*在仓库里干活时再装它，与文件浏览完全独立。*
+6. **[dock-media](https://github.com/AKS1st/dock-media)** — 音频/视频播放器。音频走音乐播放器界面，视频支持全屏，媒体通过 HTTP Range 流式加载，支持拖动进度与大文件。*要播放媒体文件时再装它（需要 dock-files）。*
+7. **[dock-spreadsheet](https://github.com/AKS1st/dock-spreadsheet)** — 只读表格查看器。XLSX / XLS / ODS / CSV / TSV，表头冻结与行列定位。*要查看表格时再装它（需要 dock-files）。*
 
 **组合建议（仅供参考，绝不是必须）：**
 

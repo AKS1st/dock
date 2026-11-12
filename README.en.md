@@ -27,6 +27,8 @@ The dock base only provides the workbench shell; concrete capabilities like file
 3. **[dock-images](https://github.com/AKS1st/dock-images)** — image viewer. PNG/JPEG/GIF/WebP/BMP/SVG/ICO/AVIF with safe SVG rendering. *Install it when you need to view images (requires dock-files).*
 4. **[dock-markdown](https://github.com/AKS1st/dock-markdown)** — Markdown viewer. md/markdown/mdx rendering, document outline, relative-asset resolution and one-click switch to editing. *Install it when you often read docs/READMEs (requires dock-files and dock-editor).*
 5. **[dock-git](https://github.com/AKS1st/dock-git)** — Git history visualization. Swimlane commit graph, branch/tag management, stage/commit/push and remote operations. *Install it when you work in repositories; fully independent of file browsing.*
+6. **[dock-media](https://github.com/AKS1st/dock-media)** — audio/video player. Audio gets a music-player view, video plays fullscreen, media streams over HTTP Range so seeking and large files work. *Install it when you want to play media files (requires dock-files).*
+7. **[dock-spreadsheet](https://github.com/AKS1st/dock-spreadsheet)** — read-only spreadsheet viewer. XLSX / XLS / ODS / CSV / TSV with frozen headers and row/column addressing. *Install it when you want to read spreadsheets (requires dock-files).*
 
 **Suggested combinations (for reference only — never mandatory):**
 
